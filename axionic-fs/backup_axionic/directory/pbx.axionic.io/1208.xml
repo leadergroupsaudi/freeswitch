@@ -1,0 +1,16 @@
+<include>
+<user id="1208">
+ <params>
+ <param name="password" value="PafccynH"/>
+ <param name="vm-password" value="PafccynH"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="1208"/>
+ <variable name="effective_caller_id_name" value="Jayaram Ganeshan "/>
+ <variable name="effective_caller_id_number" value="1208"/>
+ <variable name="outbound_caller_id_name" value="Jayaram Ganeshan "/>
+ <variable name="outbound_caller_id_number" value="1208"/>
+ </variables>
+ </user>
+</include>

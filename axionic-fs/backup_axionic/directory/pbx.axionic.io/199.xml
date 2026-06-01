@@ -1,0 +1,16 @@
+<include>
+ <user id="199">
+    <params>
+      <param name="password" value="MXW$04T"/>
+      <param name="vm-password" value="MXW$04T"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="199"/>
+      <variable name="effective_caller_id_name" value="Surya Kiran Reddy"/>
+      <variable name="effective_caller_id_number" value="199"/>
+      <variable name="outbound_caller_id_name" value="Surya Kiran Reddy"/>
+      <variable name="outbound_caller_id_number" value="199"/>
+    </variables>
+  </user>
+</include>

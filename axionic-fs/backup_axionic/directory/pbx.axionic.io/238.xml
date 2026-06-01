@@ -1,0 +1,16 @@
+<include>
+ <user id="238">
+    <params>
+      <param name="password" value="GIT66!"/>
+      <param name="vm-password" value="GIT66!"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="238"/>
+      <variable name="effective_caller_id_name" value="Smruti"/>
+      <variable name="effective_caller_id_number" value="238"/>
+      <variable name="outbound_caller_id_name" value="Smruti"/>
+      <variable name="outbound_caller_id_number" value="238"/>
+    </variables>
+  </user>
+</include>

@@ -1,0 +1,18 @@
+<include>
+<user id="401">
+ <params>
+ <param name="password" value="HAP@04"/>
+ <param name="vm-password" value="HAP@04"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="401"/>
+ <variable name="effective_caller_id_name" value="Test2"/>
+ <variable name="effective_caller_id_number" value="401"/>
+ <variable name="outbound_caller_id_name" value="Test2"/>
+ <variable name="outbound_caller_id_number" value="401"/>
+ </variables>
+ </user>
+</include>
+~
+

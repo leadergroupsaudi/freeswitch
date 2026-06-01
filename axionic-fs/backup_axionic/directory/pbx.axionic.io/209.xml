@@ -1,0 +1,16 @@
+<include>
+ <user id="209">
+    <params>
+      <param name="password" value="SIP#$0" />
+      <param name="vm-password" value="SIP#$0" />
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local" />
+      <variable name="accountcode" value="209" />
+      <variable name="effective_caller_id_name" value="Mukundhan" />
+      <variable name="effective_caller_id_number" value="209" />
+      <variable name="outbound_caller_id_name" value="Mukundhan" />
+      <variable name="outbound_caller_id_number" value="209" />
+    </variables>
+  </user>
+</include>

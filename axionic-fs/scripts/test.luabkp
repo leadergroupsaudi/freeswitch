@@ -1,0 +1,27 @@
+local api = freeswitch.API()
+local event = freeswitch.EventConsumer("CUSTOM", "callcenter::info")
+
+freeswitch.consoleLog("NOTICE", "Listening for Callcenter events...\n")
+
+while true do
+    local e = event:pop(1, 10) -- wait 10 sec max
+    if e then
+        local subClass = e:getHeader("CC-Agent")
+        local state = e:getHeader("CC-Agent-State")
+        local reason = e:getHeader("CC-Action")
+
+        freeswitch.consoleLog("NOTICE", string.format(
+            "Agent %s state=%s reason=%s\n", tostring(subClass), tostring(state), tostring(reason))
+        )
+
+        -- When canceled or failed
+        if reason == "origination-canceled" or reason == "origination-failed" then
+            freeswitch.consoleLog("NOTICE", "Executing hangup.lua for canceled call\n")
+
+            local api = freeswitch.API()
+            api:execute("lua", "hangup.lua " .. tostring(subClass))
+        end
+    end
+end
+
+

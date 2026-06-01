@@ -1,0 +1,17 @@
+ <include>
+ <user id="1012">
+    <params>
+      <param name="password" value="D77G60"/>
+      <param name="vm-password" value="D77G60"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1012"/>
+      <variable name="effective_caller_id_name" value="Elby S"/>
+      <variable name="effective_caller_id_number" value="1012"/>
+      <variable name="outbound_caller_id_name" value="Elby S"/>
+      <variable name="outbound_caller_id_number" value="1012"/>
+    </variables>
+  </user>
+  </include>
+

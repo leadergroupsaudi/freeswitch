@@ -1,0 +1,111 @@
+<configuration name="callcenter.conf" description="CallCenter">
+  <settings>
+    <!--<param name="odbc-dsn" value="dsn:user:pass"/>-->
+    <!--<param name="dbname" value="/dev/shm/callcenter.db"/>-->
+    <!--<param name="cc-instance-id" value="single_box"/>-->
+  </settings>
+
+  <queues>
+
+    <queue name="support@default">
+      <param name="strategy" value="longest-idle-agent"/>
+      <param name="moh-sound" value="$${hold_music}"/>
+      <!--<param name="record-template" value="$${recordings_dir}/${strftime(%Y-%m-%d-%H-%M-%S)}.${destination_number}.${caller_id_number}.${uuid}.wav"/>-->
+      <param name="time-base-score" value="system"/>
+      <param name="max-wait-time" value="0"/>
+      <param name="max-wait-time-with-no-agent" value="0"/>
+      <param name="max-wait-time-with-no-agent-time-reached" value="5"/>
+      <param name="tier-rules-apply" value="false"/>
+      <param name="tier-rule-wait-second" value="300"/>
+      <param name="tier-rule-wait-multiply-level" value="true"/>
+      <param name="tier-rule-no-agent-no-wait" value="false"/>
+      <param name="discard-abandoned-after" value="60"/>
+      <param name="abandoned-resume-allowed" value="false"/>
+    </queue>
+
+
+    <queue name="leader-ivr@default">
+      <param name="strategy" value="top-down"/>
+      <param name="moh-sound" value="/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/WaitTone.wav"/>
+      <param name="record-template" value="$${recordings_dir}/IVR-CCM-Recordings/${uuid}_${caller_id_number}_${sip_h_X-CallLogId}.wav"/>
+      <param name="time-base-score" value="queue"/>
+      <param name="max-wait-time" value="60"/>
+      <param name="max-wait-time-with-no-agent" value="5"/>
+      <param name="max-wait-time-with-no-agent-time-reached" value="5"/>
+      <param name="tier-rules-apply" value="false"/>
+      <param name="tier-rule-wait-second" value="30"/>
+      <param name="tier-rule-wait-multiply-level" value="true"/>
+      <param name="tier-rule-no-agent-no-wait" value="false"/>
+      <param name="discard-abandoned-after" value="30"/>
+      <param name="abandoned-resume-allowed" value="false"/>
+    </queue>
+
+    <queue name="lesaas-ivr@default">
+  <param name="strategy" value="round-robin"/>
+  <param name="moh-sound" value="/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/WaitTone.wav"/>
+  <param name="record-template" value="$${recordings_dir}/IVR-CCM-Recordings/${uuid}_${caller_id_number}_${sip_h_X-CallLogId}.wav"/>
+  <param name="time-base-score" value="queue"/>
+   <param name="reject-delay-time" value="5"/>
+ <param name="no-answer-delay-time" value="5"/>
+  <param name="max-wait-time" value="120"/>
+  <param name="max-wait-time-with-no-agent" value="5"/>
+  <param name="max-wait-time-with-no-agent-time-reached" value="5"/>
+  <param name="tier-rules-apply" value="false"/>
+  <param name="tier-rule-wait-second" value="120"/>
+  <param name="tier-rule-wait-multiply-level" value="true"/>
+  <param name="tier-rule-no-agent-no-wait" value="false"/>
+  <param name="discard-abandoned-after" value="30"/>
+  <param name="abandoned-resume-allowed" value="false"/>
+  <param name="agent_timeout" value="20"/>
+  <param name="event-member-info" value="true"/>
+</queue>
+
+
+    <queue name="jihazi-ivr@default">
+      <param name="strategy" value="round-robin"/>  
+      <!--  <param name="strategy" value="top-down"/>  -->
+      <param name="moh-sound" value="/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/WaitTone.wav"/>
+      <param name="record-template" value="$${recordings_dir}/IVR-CCM-Recordings/${uuid}_${caller_id_number}_${sip_h_X-CallLogId}.wav"/>
+      <param name="time-base-score" value="queue"/>
+      <param name="max-wait-time" value="30"/>
+      <param name="max-wait-time-with-no-agent" value="5"/>
+      <param name="max-wait-time-with-no-agent-time-reached" value="5"/>
+      <param name="tier-rules-apply" value="false"/>
+      <param name="tier-rule-wait-second" value="30"/>
+      <param name="tier-rule-wait-multiply-level" value="true"/>
+      <param name="tier-rule-no-agent-no-wait" value="false"/>
+      <param name="discard-abandoned-after" value="30"/>
+      <param name="abandoned-resume-allowed" value="false"/>
+    </queue>
+
+  </queues>
+
+<!-- WARNING: Configuration of XML Agents will be updated into the DB upon restart. -->
+<!-- WARNING: Configuration of XML Tiers will reset the level and position if those were supplied. -->
+<!-- WARNING: Agents and Tiers XML config shouldn't be used in a multi FS shared DB setup (Not currently supported anyway) -->
+  <agents>
+	  <!--<agent name="1000@default" type="callback" contact="[leg_timeout=10]user/1000@default" status="Available" max-no-answer="3" wrap-up-time="10" reject-delay-time="10" busy-delay-time="60" />-->
+	   <agent name="116" type="callback" contact="[absolute_codec_string='PCMU,PCMA',leg_timeout=30]user/116@${domain_name}" status="Available" max-no-answer="2" wrap-up-time="5" reject-delay-time="20" busy-delay-time="20" />
+        <agent name="110" type="callback" contact="[absolute_codec_string='PCMU,PCMA',leg_timeout=30]user/110@${domain_name}" status="Available" max-no-answer="2" wrap-up-time="5" reject-delay-time="20" busy-delay-time="20" />
+	<agent name="130" type="callback" contact="[absolute_codec_string='PCMU,PCMA',leg_timeout=30]user/130@${domain_name}" status="Available" max-no-answer="2" wrap-up-time="5" reject-delay-time="20" busy-delay-time="20" />
+	<!--<agent name="257" type="callback" contact="[absolute_codec_string='PCMU,PCMA',leg_timeout=20]user/257@${domain_name}" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />-->
+		 <agent name="267" type="callback" contact="[absolute_codec_string='PCMU,PCMA',leg_timeout=20]user/267@${domain_name}" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="5" busy-delay-time="20" />
+	<agent name="268" type="callback" contact="[absolute_codec_string='PCMU,PCMA',leg_timeout=20]user/268@${domain_name}" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="5" busy-delay-time="20" />
+	<agent name="276" type="callback" contact="[absolute_codec_string='PCMU,PCMA',leg_timeout=20]user/276@${domain_name}" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="5" busy-delay-time="20" />
+
+  </agents>
+  <tiers>
+    <!-- If no level or position is provided, they will default to 1.  You should do this to keep db value on restart. -->
+    <!-- <tier agent="1000@default" queue="support@default" level="1" position="1"/> -->
+        <tier agent="116" queue="leader-ivr@default" level="1" position="1"/>
+        <tier agent="110" queue="leader-ivr@default" level="1" position="2"/>
+	<tier agent="130" queue="jihazi-ivr@default" level="1" position="1"/>
+
+	<!--<tier agent="257" queue="lesaas-ivr@default" level="1" position="1"/>-->
+	<tier agent="267" queue="lesaas-ivr@default" level="1" position="1"/> 
+	  <tier agent="268" queue="lesaas-ivr@default" level="1" position="2"/>
+	  <tier agent="276" queue="lesaas-ivr@default" level="1" position="3"/>
+
+</tiers>
+
+</configuration> 

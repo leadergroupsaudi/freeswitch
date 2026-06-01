@@ -1,0 +1,17 @@
+ <include>
+ <user id="1016">
+    <params>
+      <param name="password" value="MJ7156"/>
+      <param name="vm-password" value="MJ7156"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1016"/>
+      <variable name="effective_caller_id_name" value="Elamin M"/>
+      <variable name="effective_caller_id_number" value="1016"/>
+      <variable name="outbound_caller_id_name" value="Elamin M"/>
+      <variable name="outbound_caller_id_number" value="1016"/>
+    </variables>
+  </user>
+  </include>
+

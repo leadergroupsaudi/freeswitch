@@ -1,0 +1,16 @@
+<include>
+<user id="1215">
+ <params>
+ <param name="password" value="hhoP/gpF"/>
+ <param name="vm-password" value="hhoP/gpF"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="1215"/>
+ <variable name="effective_caller_id_name" value="Mithun PP "/>
+ <variable name="effective_caller_id_number" value="1215"/>
+ <variable name="outbound_caller_id_name" value="Mithun PP "/>
+ <variable name="outbound_caller_id_number" value="1215"/>
+ </variables>
+ </user>
+</include>

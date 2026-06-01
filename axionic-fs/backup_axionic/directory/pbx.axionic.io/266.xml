@@ -1,0 +1,16 @@
+<include>
+ <user id="266">
+    <params>
+      <param name="password" value="UP6!5$"/>
+      <param name="vm-password" value="UP6!5$"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="266"/>
+      <variable name="effective_caller_id_name" value="Sumesh C S"/>
+      <variable name="effective_caller_id_number" value="266"/>
+      <variable name="outbound_caller_id_name" value="Sumesh C S"/>
+      <variable name="outbound_caller_id_number" value="266"/>
+    </variables>
+  </user>
+</include>

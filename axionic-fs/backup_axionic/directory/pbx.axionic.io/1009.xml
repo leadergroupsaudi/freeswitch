@@ -1,0 +1,17 @@
+ <include>
+ <user id="1009">
+    <params>
+      <param name="password" value="O35P12"/>
+      <param name="vm-password" value="O35P12"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1009"/>
+      <variable name="effective_caller_id_name" value="Shirish"/>
+      <variable name="effective_caller_id_number" value="1009"/>
+      <variable name="outbound_caller_id_name" value="Shirish"/>
+      <variable name="outbound_caller_id_number" value="1009"/>
+    </variables>
+  </user>
+  </include>
+

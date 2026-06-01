@@ -1,0 +1,16 @@
+<include>
+<user id="1301">
+ <params>
+ <param name="password" value="Lelab@123"/>
+ <param name="vm-password" value="Lelab@123"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="1301"/>
+ <variable name="effective_caller_id_name" value="voiptest 2"/>
+ <variable name="effective_caller_id_number" value="1301"/>
+ <variable name="outbound_caller_id_name" value="voiptest 2"/>
+ <variable name="outbound_caller_id_number" value="1301"/>
+ </variables>
+ </user>
+</include>

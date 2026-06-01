@@ -1,0 +1,94 @@
+freeswitch.consoleLog("DEBUG", "The inside function details is \n")
+local dialed_number = session:getVariable("destination_number")
+local from_num = session:getVariable("caller_id_number")
+local sip_uri = session:getVariable("presence_id")
+local sip_domain_name = sip_uri:match("@(.-):?%d*$")
+session:setVariable("sip_domain_name", sip_domain_name);
+session:execute("export","nolocal:sip_domain_name="..sip_domain_name)
+local sip_callid = session:getVariable("sip_call_id")
+local uuid = session:getVariable("uuid")
+local sip_user_agent = session:getVariable("sip_user_agent")
+freeswitch.consoleLog("notice","Variable sip_user_agent is :" ..sip_user_agent)
+local timestamp = session:getVariable("created_time");
+local startTime = os.date("!%Y-%m-%dT%TZ", math.floor(timestamp/1e6))
+local media_type = session:getVariable("isvideocall")
+freeswitch.consoleLog("INFO","videocall variable is" ..media_type)
+api = freeswitch.API()
+json = freeswitch.JSON()
+lunajson = require "lunajson"
+local time = api:getTime()
+
+local module_folder = "/usr/local/freeswitch-prod-instance/share/freeswitch/scripts/"
+package.path = module_folder .. "?.lua;" .. package.path
+local api_call = require "lua-functions/api_call"
+local config = require "lua-functions/config"
+
+getUserPresence_api = config.api.getUserPresence_api
+
+
+ function validateUserPresence(presence_status)
+      if presence_status == "MND" then
+            freeswitch.consoleLog("INFO","The call not going to connected because of presence_status is:" ..currentStatusCode.."\n")
+            session:answer()
+            vm_data = "default "..sip_domain_name.." " ..dialed_number
+            session:execute("voicemail",vm_data)
+            session:hangup()
+      else
+            if (media_type == "true") then
+                  media_type = "V"
+            else
+                  media_type = "A"
+            end
+            local callLogId = session:getVariable("sip_h_X-CallLogId")
+            local call_type = "O"
+            local notify_json = "{\"callerId\":\""..from_num.."\",\"receivers\":[\""..dialed_number.."\"],\"mediaType\":\""..media_type.."\",\"callType\":\""..call_type.."\",\"isScreenShared\":false,\"logId\":"..callLogId.."}"
+            api_call.callNotification(notify_json,access_token)
+      end
+ end
+
+if freeswitch.getGlobalVariable("access_token") ~= nil then
+	access_token = freeswitch.getGlobalVariable("access_token")
+	auth_userId = freeswitch.getGlobalVariable("fs_userId")
+else
+	access_token,auth_userId = api_call.accessToken()
+end
+
+if access_token ~= nil then 
+-- create Call Log for IP-Phone calls
+	session:setVariable("access_token",access_token) 
+	session:execute("export","nolocal:access_token="..access_token)
+	if session:getVariable("sip_h_X-CallLogId") == nil and ( string.find(sip_user_agent, "MicroSIP") or string.find(sip_user_agent, "PortSIP") or string.find(sip_user_agent, "Z 5.5.14") or string.find(sip_user_agent, "Cisco") ) then
+		if string.len(from_num) > 4 then isExternal_from = true else isExternal_from = false end
+		if string.len(dialed_number) > 4 then isExternal_dialed = true else isExternal_dialed = false end
+		useragent_json = "{\"CallType\":\"A\",\"CallMode\":\"O\",\"CallDuration\":\"0\",\"CallParticipantsList\":[{\"IsExternal\":"..tostring(isExternal_from)..",\"CallerId\":\""..from_num.."\",\"IsRead\":false,\"IsCaller\":true,\"AnswerStatus\":\"A\"},{\"IsExternal\":"..tostring(isExternal_dialed)..",\"CallerId\":\""..dialed_number.."\",\"IsRead\":false,\"IsCaller\":false,\"AnswerStatus\":\"A\"}]}"
+		userPresence_data = api_call.createCallLog(useragent_json,access_token,auth_userId)
+	end
+
+	-- Get the user Presence status of Dialed Number
+	if userPresence_data ~= nil then
+				for _, user in ipairs(userPresence_data.userPresence) do
+					if user.extension == dialed_number then
+                          freeswitch.consoleLog("NOTICE","Extension: " .. user.extension .. "\nCurrent Status Code: " .. user.currentStatusCode)
+						  validateUserPresence(user.currentStatusCode)
+                          break -- Found the extension, no need to continue iterating
+					end
+                end
+	else
+		session:execute("curl", getUserPresence_api..dialed_number.." append_headers 'Authorization: Bearer "..access_token.."' ")
+		local userPresence_response_code = session:getVariable("curl_response_code")
+		freeswitch.consoleLog("INFO","The presence response  API result is: "..userPresence_response_code.. "\n")
+	        if  tonumber(userPresence_response_code) >= 200 and tonumber(userPresence_response_code) < 300 then
+				local userPresence_response_data = json:decode(session:getVariable("curl_response_data"))
+				local presence_status = userPresence_response_data.response[1].currentStatusCode
+	        	freeswitch.consoleLog("INFO", "The current status code is: " .. presence_status .. "\n")
+				validateUserPresence(presence_status)
+		else
+			freeswitch.consoleLog("INFO","API Error user Presence status::" ..userPresence_response_code)
+		end
+	end
+ else
+
+	freeswitch.consoleLog("INFO","Token not found")
+	session:hangup()
+	do return end
+ end

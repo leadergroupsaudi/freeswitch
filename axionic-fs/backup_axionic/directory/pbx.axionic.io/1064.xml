@@ -1,0 +1,17 @@
+ <include>
+ <user id="1064">
+    <params>
+      <param name="password" value="J58M64"/>
+      <param name="vm-password" value="J58M64"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1064"/>
+      <variable name="effective_caller_id_name" value="Mohammed Anwar"/>
+      <variable name="effective_caller_id_number" value="1064"/>
+      <variable name="outbound_caller_id_name" value="Mohammed Anwar"/>
+      <variable name="outbound_caller_id_number" value="1064"/>
+    </variables>
+  </user>
+  </include>
+

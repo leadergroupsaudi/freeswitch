@@ -1,0 +1,22 @@
+api = freeswitch.API();
+session:answer();
+
+session:execute("playback", "/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/JihaziWelcome.wav");
+
+                local extensions = {"130"}
+                local ext_not_reg = "error/user_not_registered"
+                for i = 1, #extensions do
+                        --print([i])
+                        freeswitch.consoleLog("notice","Extension Array "..extensions[i])
+                        local extension_status = api:executeString("sofia_contact " .. extensions[i])
+                        if extension_status ~= ext_not_reg  then
+                                api:executeString("callcenter_config agent set status " .. extensions[i] .. " Available")
+                                api:executeString("callcenter_config agent set contact " .. extensions[i] .. " [absolute_codec_string='G722,PCMU,PCMA',leg_timeout=30]" .. extension_status);
+                                api:executeString("callcenter_config agent set state " .. extensions[i] .. " Waiting")
+                         else
+                                freeswitch.consoleLog("notice","Extension " .. extensions[i] .. " Not registered . Changing status to Logged Out ..")
+                                api:executeString("callcenter_config agent set status " .. extensions[i] .. " 'Logged Out'")
+                                api:executeString("callcenter_config agent set state " .. extensions[i] .. " Idle")
+                         end
+                end
+

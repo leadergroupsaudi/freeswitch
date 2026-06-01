@@ -1,0 +1,16 @@
+<include>
+ <user id="197">
+    <params>
+      <param name="password" value="CXW$05L"/>
+      <param name="vm-password" value="CXW$05L"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="197"/>
+      <variable name="effective_caller_id_name" value="Arun Mohandas"/>
+      <variable name="effective_caller_id_number" value="197"/>
+      <variable name="outbound_caller_id_name" value="Arun Mohandas"/>
+      <variable name="outbound_caller_id_number" value="197"/>
+    </variables>
+  </user>
+</include>

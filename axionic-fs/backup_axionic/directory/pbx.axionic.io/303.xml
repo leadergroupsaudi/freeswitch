@@ -1,0 +1,16 @@
+<include>
+ <user id="303">
+    <params>
+      <param name="password" value="HAP@09"/>
+      <param name="vm-password" value="HAP@09"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="303"/>
+      <variable name="effective_caller_id_name" value="Aparna"/>
+      <variable name="effective_caller_id_number" value="303"/>
+      <variable name="outbound_caller_id_name" value="Aparna"/>
+      <variable name="outbound_caller_id_number" value="303"/>
+    </variables>
+  </user>
+</include>

@@ -1,0 +1,57 @@
+api = freeswitch.API();
+local caller = session:getVariable("caller_id_number");
+freeswitch.consoleLog("notice","Caller ID Number : "..caller)
+session:answer();
+session:execute("sleep","500")
+--dtmf = session:playAndGetDigits(1, 4, 3, 5000, "#","welcome-siptrunk.wav",
+--"/usr/local/freeswitch-staging-instance/share/freeswitch/sounds/en/us/callie/ivr/8000/ivr-demo-invalid.wav","[0123456789]");
+
+for i = 0,2,1
+do
+        digits = session:read(1, 4, "/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/LeaderWelcome.wav", 5000,"");
+        freeswitch.consoleLog("NOTICE", "digits "..digits.."\n");
+	if (string.len(digits) == 1 and tonumber(digits) == 0) or digits == '' then
+		session:setVariable("continue_on_fail","true")
+		local extensions = {"116", "110"}
+		local ext_not_reg = "error/user_not_registered"
+		for i = 1, #extensions do
+  			--print([i])
+			freeswitch.consoleLog("notice","Extension Array "..extensions[i])
+			local extension_status = api:executeString("sofia_contact " .. extensions[i])
+			if extension_status ~= ext_not_reg  then
+				--api:executeString("callcenter_config agent add " .. value.Extension .. " Callback")
+				api:executeString("callcenter_config agent set status " .. extensions[i] .. " Available")
+				api:executeString("callcenter_config agent set contact " .. extensions[i] .. " [absolute_codec_string='PCMU,PCMA',leg_timeout=30]" .. extension_status);
+				--api:executeString("callcenter_config agent set reject_delay_time " .. extensions[i] .. " 3")
+				--api:executeString("callcenter_config agent set no_answer_delay_time " .. extensions[i] .. " 3")
+				--api:executeString("callcenter_config agent set reject_delay_time " .. extensions[i] .. " 3")
+				--api:executeString("callcenter_config agent set busy_delay_time " .. extensions[i] .. " 3")
+				api:executeString("callcenter_config agent set state " .. extensions[i] .. " Waiting")
+                                --api:executeString("callcenter_config tier add ivr-test@default " .. value.Extension .. " 1 1")
+			 else
+                                freeswitch.consoleLog("notice","Extension " .. extensions[i] .. " Not registered . Changing status to Logged Out ..")
+                                api:executeString("callcenter_config agent set status " .. extensions[i] .. " 'Logged Out'")
+                         end
+		end
+                --session:execute("callcenter","leader-ivr@default")
+                --session:execute("playback","/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/AgentBusy.wav")
+                --session:hangup()
+		session:execute("transfer","LEADER_910 XML public")
+		--session:setVariable("call_timeout", "30");
+		--session:execute("transfer","116 XML public");
+	elseif string.len(digits) == 3 or  string.len(digits) == 4  then
+                cmd = "user_exists id "..digits.." pbx.axionic.io"
+                found = api:executeString(cmd)
+                freeswitch.consoleLog("notice","Extension Output result"..found)
+                if found == 'true' then
+                        freeswitch.consoleLog("notice","Extesnion found")
+                        dial_string = digits .." XML public";
+			session:setVariable("call_timeout", "30");
+                        session:execute("transfer",dial_string);
+			--session:hangup();
+                end
+        end
+
+        session:execute("playback", "/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/en/us/callie/ivr/8000/ivr-you_have_dialed_an_invalid_extension.wav");
+end
+

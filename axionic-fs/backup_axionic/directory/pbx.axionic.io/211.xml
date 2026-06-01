@@ -1,0 +1,16 @@
+<include>
+ <user id="211">
+    <params>
+      <param name="password" value="Y4&E!0"/>
+      <param name="vm-password" value="Y4&E!0"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="211"/>
+      <variable name="effective_caller_id_name" value="Apoorva"/>
+      <variable name="effective_caller_id_number" value="211"/>
+      <variable name="outbound_caller_id_name" value="Apoorva"/>
+      <variable name="outbound_caller_id_number" value="211"/>
+    </variables>
+  </user>
+</include>

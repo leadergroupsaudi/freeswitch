@@ -1,0 +1,16 @@
+<include>
+ <user id="256">
+    <params>
+      <param name="password" value="UX67#$"/>
+      <param name="vm-password" value="UX67#$"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="256"/>
+      <variable name="effective_caller_id_name" value="Amal Dev"/>
+      <variable name="effective_caller_id_number" value="256"/>
+      <variable name="outbound_caller_id_name" value="Amal Dev"/>
+      <variable name="outbound_caller_id_number" value="256"/>
+    </variables>
+  </user>
+</include>

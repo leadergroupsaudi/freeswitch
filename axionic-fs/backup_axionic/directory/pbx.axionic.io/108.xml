@@ -1,0 +1,16 @@
+<include>
+<user id="108">
+ <params>
+ <param name="password" value="M'968G"/>
+ <param name="vm-password" value="M'968G"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="108"/>
+ <variable name="effective_caller_id_name" value="Kitchen / CCTV Room"/>
+ <variable name="effective_caller_id_number" value="108"/>
+ <variable name="outbound_caller_id_name" value="Kitchen / CCTV Room"/>
+ <variable name="outbound_caller_id_number" value="108"/>
+ </variables>
+ </user>
+</include>

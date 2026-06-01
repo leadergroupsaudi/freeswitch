@@ -1,0 +1,17 @@
+<include>
+<user id="163">
+ <params>
+ <param name="password" value="V#882T"/>
+ <param name="vm-password" value="V#882T"/>
+  <param name="dial-string" value="{originate_timeout=30}${sofia_contact(${dialed_user}@${dialed_domain})}"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="163"/>
+ <variable name="effective_caller_id_name" value="Aljouhara Altuwaim"/>
+ <variable name="effective_caller_id_number" value="163"/>
+ <variable name="outbound_caller_id_name" value="Aljouhara Altuwaim"/>
+ <variable name="outbound_caller_id_number" value="163"/>
+ </variables>
+ </user>
+</include>

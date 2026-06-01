@@ -1,0 +1,16 @@
+<include>
+  <user id="2196">
+    <params>
+      <param name="password" value="C$197Z"/>
+      <param name="vm-password" value="C$197Z"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="2196"/>
+      <variable name="effective_caller_id_name" value="Wafa bint Misfer bin Al-Hamidi Al-Ghanami Al-Otaibi"/>
+      <variable name="effective_caller_id_number" value="2196"/>
+      <variable name="outbound_caller_id_name" value="Wafa bint Misfer bin Al-Hamidi Al-Ghanami Al-Otaibi"/>
+      <variable name="outbound_caller_id_number" value="2196"/>
+    </variables>
+  </user>
+</include>

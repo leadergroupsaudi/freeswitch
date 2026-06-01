@@ -1,0 +1,114 @@
+freeswitch.consoleLog("DEBUG", "The inside function details is \n")
+local dialed_number = session:getVariable("destination_number")
+local from_num = session:getVariable("caller_id_number")
+local sip_uri = session:getVariable("presence_id")
+--local sip_domain_name = sip_uri:match("@(.-):?%d*$")
+ local sip_domain_name = "pbx.axionic.io"
+ local sip_port ="7440"
+session:setVariable("sip_domain_name", sip_domain_name);
+session:execute("export","nolocal:sip_domain_name="..sip_domain_name)
+local sip_callid = session:getVariable("sip_call_id")
+session:setVariable("sip_call_id", sip_callid);
+session:execute("export","nolocal:sip_call_id="..sip_callid)
+local uuid = session:getVariable("uuid")
+local sip_user_agent = session:getVariable("sip_user_agent")
+local isFromAxionic = session:getVariable("sip_h_X-isFromAxionic")
+freeswitch.consoleLog("INFO","Custom headeris" ..isFromAxionic)
+--local call_direction = session:getVariable("direction")
+--freeswitch.consoleLog("INFO","Call-Direction" ..call_direction)
+
+--local presence_status = session:getVariable("presence_status")
+--freeswitch.consoleLog("INFO","presence is" ..presence_status)
+--freeswitch.consoleLog("notice","Variable sip_user_agent is :" ..sip_user_agent)
+local timestamp = session:getVariable("created_time");                                  
+local startTime = os.date("!%Y-%m-%dT%TZ", math.floor(timestamp/1e6))
+local media_type = session:getVariable("isvideocall")
+freeswitch.consoleLog("INFO","videocall variable is" ..media_type)
+api = freeswitch.API()
+json = freeswitch.JSON()
+lunajson = require "lunajson"
+local time = api:getTime()
+
+local module_folder = freeswitch.getGlobalVariable("script_dir") .."/"
+package.path = module_folder .. "?.lua;" .. package.path
+local api_call = require "lua-functions/api_call"
+local config = require "lua-functions/config"
+
+--getUserPresence_api = config.api.getUserPresence_api
+
+--function x()
+  --    if presence_status ~= nil and presence_status == "MND" then
+           --freeswitch.consoleLog("INFO","The call not going to connected because of presence_status is:" ..currentStatusCode.."\n")
+    --        session:answer()
+      --      vm_data = "default "..sip_domain_name.." " ..dialed_number
+        --    session:execute("voicemail",vm_data)
+          --  session:hangup()
+--      else
+     -- changes for IP-phone to Axionic --
+            if (media_type == "true") then
+                 media_type = "V"
+            else
+                  media_type = "A"
+            end
+  --          local callLogId = session:getVariable("sip_h_X-CallLogId")
+            local call_type = "O"
+--	    if call_direction == "inbound" then
+	   if isFromAxionic and isFromAxionic:lower() == "true" then
+            freeswitch.consoleLog("INFO", "Invite from Axionic detected. Skipping notify API call.")
+            else
+            freeswitch.consoleLog("INFO", "Invite not from Axionic. Proceeding to call notify API.")
+	     local useragent_json = "{\"domain\":\""..sip_domain_name.."\",\"port\":\""..sip_port.."\",\"callerId\":\""..from_num.."\",\"receivers\":[\""..dialed_number.."\"],\"mediaType\":\""..media_type.."\",\"callType\":\""..call_type.."\",\"isScreenShared\":false}"
+ 		 userPresence_data = api_call.createCallLog(useragent_json)
+        end
+    -- end
+--end
+--if freeswitch.getGlobalVariable("access_token") ~= nil then
+--	access_token = freeswitch.getGlobalVariable("access_token")
+--	auth_userId = freeswitch.getGlobalVariable("auth_userId")
+--else
+--	access_token,auth_userId = api_call.accessToken()
+--end
+
+--if access_token ~= nil then 
+-- create Call Log for IP-Phone calls
+--	session:setVariable("access_token",access_token) 
+--	session:execute("export","nolocal:access_token="..access_token)
+	--if session:getVariable("sip_h_X-CallLogId") == nil and ( string.find(sip_user_agent, "MicroSIP") or string.find(sip_user_agent, "PortSIP") or string.find(sip_user_agent, "Z 5.5.14") or string.find(sip_user_agent, "Cisco") ) then
+--	if session:getVariable("sip_h_X-CallLogID") == nil then
+--		if string.len(from_num) > 4 then isExternal_from = true else isExternal_from = false end
+--		if string.len(dialed_number) > 4 then isExternal_dialed = true else isExternal_dialed = false end
+--		if (media_type == "true") then
+  --                media_type = "V"
+    --        else
+      --            media_type = "A"
+        --    end
+	  --   local call_type = "O"
+
+--		useragent_json = "{\"CallType\":\"A\",\"CallMode\":\"O\",\"CallDuration\":\"0\",\"CallParticipantsList\":[{\"IsExternal\":"..tostring(isExternal_from)..",\"CallerId\":\""..from_num.."\",\"IsRead\":false,\"IsCaller\":true,\"AnswerStatus\":\"A\"},{\"IsExternal\":"..tostring(isExternal_dialed)..",\"CallerId\":\""..dialed_number.."\",\"IsRead\":false,\"IsCaller\":false,\"AnswerStatus\":\"A\"}]}"
+	--	local useragent_json = "{\"domain\":\""..sip_domain_name.."\",\"port\":\""..sip_port.."\",\"callerId\":\""..from_num.."\",\"receivers\":[\""..dialed_number.."\"],\"mediaType\":\""..media_type.."\",\"callType\":\""..call_type.."\",\"isScreenShared\":false}"
+
+	--	freeswitch.consoleLog("DEBUG", "Before Hitting callLog API \n")
+	--	userPresence_data = api_call.createCallLog(useragent_json)
+--	end
+
+	-- Get the user Presence status of Dialed Number
+--	if userPresence_data ~= nil then
+  --              for _, user in ipairs(userPresence_data.userPresence) do
+    --                    if user.extension == dialed_number then
+      --                    freeswitch.consoleLog("NOTICE","Extension: " .. user.extension .. "\nCurrent Status Code: " .. user.currentStatusCode)
+	--		  validateUserPresence(user.currentStatusCode)
+          --                break -- Found the extension, no need to continue iterating
+            --            end
+              --  end
+--	else
+		--user_payload = "{\"domain\":\""..sip_domain_name.."\",\"extensionCodes\":[\""..dialed_number.."\"]}"
+--		getUser_payload = "{\"domain\":\""..sip_domain_name.."\",\"extensionCodes\":[\""..dialed_number.."\"]}"
+--		presence_status = api_call.getUserPresence(access_token,getUser_payload)
+--		validateUserPresence(presence_status)
+--	end
+ --else
+
+--	freeswitch.consoleLog("INFO","Token not found")
+--	session:hangup()
+--	do return end
+-- end

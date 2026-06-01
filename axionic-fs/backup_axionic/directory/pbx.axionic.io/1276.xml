@@ -1,0 +1,16 @@
+<include>
+<user id="1276">
+ <params>
+ <param name="password" value="myegGWzE"/>
+ <param name="vm-password" value="myegGWzE"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="1276"/>
+ <variable name="effective_caller_id_name" value="Pratiksha Rajnath Shukla "/>
+ <variable name="effective_caller_id_number" value="1276"/>
+ <variable name="outbound_caller_id_name" value="Pratiksha Rajnath Shukla "/>
+ <variable name="outbound_caller_id_number" value="1276"/>
+ </variables>
+ </user>
+</include>
