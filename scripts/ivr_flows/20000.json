@@ -1,0 +1,91 @@
+{
+  "extension": "20000",
+  "ivrName": "Main Office IVR",
+  "context": "default",
+  "entry": "main_menu",
+  "nodes": {
+    "main_menu": {
+      "type": "menu",
+      "audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/ivr_menu.wav",
+      "invalid_audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/provideinput.wav",
+      "digits": "1 1 3 5000",
+      "valid_digits": "(^1$|^2$|^3$|^4$|^5$)",
+      "max_retries": 3,
+      "next": {
+        "1": "press1",
+        "2": "press2",
+        "3": "press3",
+        "4": "press4",
+        "5": "direct_agent"
+      }
+    },
+    "press1": {
+      "type": "confirm",
+      "audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/after_press1.wav",
+      "invalid_audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/provideinput.wav",
+      "digits": "1 1 3 5000",
+      "valid_digits": "(^1$|^2$|^3$|^9$)",
+      "max_retries": 3,
+      "next": {
+        "1": "agent_queue",
+        "2": "agent_queue",
+        "3": "agent_queue",
+        "9": "main_menu"
+      }
+    },
+    "press2": {
+      "type": "confirm",
+      "audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/after_press2.wav",
+      "invalid_audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/provideinput.wav",
+      "digits": "1 1 3 5000",
+      "valid_digits": "(^1$|^2$|^3$|^4$|^9$)",
+      "max_retries": 3,
+      "next": {
+        "1": "agent_queue",
+        "2": "agent_queue",
+        "3": "agent_queue",
+        "4": "agent_queue",
+        "9": "main_menu"
+      }
+    },
+    "press3": {
+      "type": "confirm",
+      "audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/after_press3.wav",
+      "invalid_audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/provideinput.wav",
+      "digits": "1 1 3 5000",
+      "valid_digits": "(^1$|^2$|^3$|^4$|^9$)",
+      "max_retries": 3,
+      "next": {
+        "1": "agent_queue",
+        "2": "agent_queue",
+        "3": "agent_queue",
+        "4": "agent_queue",
+        "9": "main_menu"
+      }
+    },
+    "press4": {
+      "type": "confirm",
+      "audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/after_press4.wav",
+      "invalid_audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/provideinput.wav",
+      "digits": "1 1 3 5000",
+      "valid_digits": "(^1$|^2$|^3$|^9$)",
+      "max_retries": 3,
+      "next": {
+        "1": "agent_queue",
+        "2": "agent_queue",
+        "3": "agent_queue",
+        "9": "main_menu"
+      }
+    },
+    "direct_agent": {
+      "type": "transfer",
+      "destination": "direct_agent",
+      "context": "default"
+    },
+    "agent_queue": {
+      "type": "transfer",
+      "destination": "direct_agent",
+      "context": "default"
+    }
+  }
+}

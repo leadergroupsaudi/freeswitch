@@ -1,0 +1,214 @@
+<?php
+class SipProfileXML {
+
+    private static function getBasePath() {
+      #   return '/usr/local/freeswitch/conf';
+	 return   '/usr/local/freeswitch-automax-instance/etc/freeswitch';
+    }
+
+    public static function getProfilePath($filename) {
+        return self::getBasePath() . '/' . $filename;
+    }
+
+    /**
+     * Read all params from a sip_profile XML file
+     * Returns array of ['param_name' => 'param_value']
+     */
+    public static function read($filename) {
+        $filePath = self::getProfilePath($filename);
+
+        if (!file_exists($filePath))
+            return array('success' => false, 'error' => "Profile file not found: {$filePath}");
+
+        $content = file_get_contents($filePath);
+        if ($content === false)
+            return array('success' => false, 'error' => "Cannot read file: {$filePath}");
+
+        libxml_use_internal_errors(true);
+        $xml = simplexml_load_string($content);
+        if (!$xml) {
+            libxml_clear_errors();
+            return array('success' => false, 'error' => "Invalid XML in: {$filePath}");
+        }
+        libxml_clear_errors();
+
+        $params = array();
+
+        // Handle both <profile> and <include><profile> structures
+        $profile = null;
+        if ($xml->getName() === 'profile') {
+            $profile = $xml;
+        } elseif (isset($xml->profile)) {
+            $profile = $xml->profile;
+        } elseif (isset($xml->settings)) {
+            $profile = $xml;
+        }
+
+        if ($profile) {
+            foreach ($profile->settings->param as $param) {
+                $name  = (string)$param['name'];
+                $value = (string)$param['value'];
+                if ($name) $params[$name] = $value;
+            }
+        }
+
+        return array('success' => true, 'params' => $params, 'file' => $filePath);
+    }
+
+    /**
+     * Write updated params to sip_profile XML file
+     * $updates = array('param_name' => 'new_value')
+     */
+    public static function write($filename, $updates) {
+        $filePath = self::getProfilePath($filename);
+
+        if (!file_exists($filePath))
+            return array('success' => false, 'error' => "Profile file not found: {$filePath}");
+
+        if (!is_writable($filePath))
+            return array('success' => false, 'error' => "Profile file not writable: {$filePath}");
+
+        $content = file_get_contents($filePath);
+        if ($content === false)
+            return array('success' => false, 'error' => "Cannot read file: {$filePath}");
+
+        $updated  = array();
+        $appended = array();
+
+        foreach ($updates as $paramName => $paramValue) {
+            $safeValue   = htmlspecialchars($paramValue, ENT_XML1 | ENT_COMPAT, 'UTF-8');
+            $escapedName = preg_quote($paramName, '/');
+
+            // Match: <param name="param_name" value="old_value"/>
+            $pattern     = '/(<param\s+name="' . $escapedName . '"\s+value=")[^"]*(")/i';
+            $replacement = '${1}' . $safeValue . '${2}';
+            $newContent  = preg_replace($pattern, $replacement, $content, -1, $count);
+
+            if ($count > 0) {
+                $content   = $newContent;
+                $updated[] = $paramName;
+            } else {
+                // Param not found — append before </settings>
+                $newLine   = '      <param name="' . $paramName . '" value="' . $safeValue . '"/>';
+                $content   = str_replace('</settings>', $newLine . "\n    </settings>", $content);
+                $appended[] = $paramName;
+                $updated[]  = $paramName;
+            }
+        }
+
+        if (file_put_contents($filePath, $content) === false)
+            return array('success' => false, 'error' => "Failed to write: {$filePath}");
+
+        return array(
+            'success'  => true,
+            'updated'  => $updated,
+            'appended' => $appended,
+            'file'     => $filePath,
+        );
+    }
+
+    /**
+     * Create a new custom profile XML file
+     */
+    public static function create($profileName, $params) {
+        $filename = 'sip_profiles/' . $profileName . '.xml';
+        $filePath = self::getProfilePath($filename);
+        $dir      = dirname($filePath);
+
+        if (!is_dir($dir))
+            return array('success' => false, 'error' => "Profile directory not found: {$dir}");
+
+        if (file_exists($filePath))
+            return array('success' => false, 'error' => "Profile file already exists: {$filePath}");
+
+        $xml  = '<include>' . "\n";
+        $xml .= '  <profile name="' . htmlspecialchars($profileName, ENT_XML1 | ENT_COMPAT) . '">' . "\n";
+        $xml .= '    <settings>' . "\n";
+
+        foreach ($params as $name => $value) {
+            $safeName  = htmlspecialchars($name,  ENT_XML1 | ENT_COMPAT);
+            $safeValue = htmlspecialchars($value, ENT_XML1 | ENT_COMPAT);
+            $xml .= '      <param name="' . $safeName . '" value="' . $safeValue . '"/>' . "\n";
+        }
+
+        $xml .= '    </settings>' . "\n";
+        $xml .= '  </profile>' . "\n";
+        $xml .= '</include>' . "\n";
+
+        if (file_put_contents($filePath, $xml) === false)
+            return array('success' => false, 'error' => "Failed to create: {$filePath}");
+
+        return array('success' => true, 'file' => $filePath, 'filename' => $filename);
+    }
+
+    /**
+     * Reload a SIP profile via ESL
+     */
+    public static function reload($profileName) {
+        try {
+            $esl = new FreeSwitchESL();
+            if (!$esl->connect())
+                return array('success' => false, 'error' => 'ESL connection failed');
+
+            $response = $esl->sendCommand("api sofia profile {$profileName} restart");
+            $esl->disconnect();
+
+            $success = (strpos($response, '+OK')        !== false ||
+                        strpos($response, 'Restarting') !== false ||
+                        strpos($response, 'Starting')   !== false);
+
+            return array(
+                'success'  => $success,
+                'response' => trim($response),
+                'command'  => "sofia profile {$profileName} restart",
+            );
+        } catch (Exception $e) {
+            return array('success' => false, 'error' => $e->getMessage());
+        }
+    }
+
+    /**
+     * Rescan profile (lighter than restart — picks up gateway changes)
+     */
+    public static function rescan($profileName) {
+        try {
+            $esl = new FreeSwitchESL();
+            if (!$esl->connect())
+                return array('success' => false, 'error' => 'ESL connection failed');
+
+            $response = $esl->sendCommand("api sofia profile {$profileName} rescan");
+            $esl->disconnect();
+
+            return array(
+                'success'  => (strpos($response, '+OK') !== false),
+                'response' => trim($response),
+            );
+        } catch (Exception $e) {
+            return array('success' => false, 'error' => $e->getMessage());
+        }
+    }
+
+    /**
+     * Get Sofia profile status
+     */
+    public static function status($profileName) {
+        try {
+            $esl = new FreeSwitchESL();
+            if (!$esl->connect())
+                return array('success' => false, 'error' => 'ESL connection failed');
+
+            $response = $esl->sendCommand("api sofia status profile {$profileName}");
+            $esl->disconnect();
+
+            $running = (strpos($response, 'RUNNING') !== false);
+            return array(
+                'success' => true,
+                'running' => $running,
+                'status'  => $running ? 'running' : 'stopped',
+                'raw'     => trim($response),
+            );
+        } catch (Exception $e) {
+            return array('success' => false, 'error' => $e->getMessage());
+        }
+    }
+}

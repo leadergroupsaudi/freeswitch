@@ -1,0 +1,59 @@
+<?php
+class FreeSwitchESL {
+    private $socket;
+    private $host;
+    private $port;
+    private $password;
+
+    public function __construct($host = '127.0.0.1', $port = 8022, $password = 'ClueCon') {
+        $this->host     = $host;
+        $this->port     = $port;
+        $this->password = $password;
+    }
+
+    public function connect() {
+        $this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, 5);
+        if (!$this->socket) return false;
+        $this->read();
+        $this->send("auth {$this->password}");
+        return strpos($this->read(), '+OK accepted') !== false;
+    }
+
+    public function reloadDialplan() {
+        $this->send("api reloadxml");
+        return strpos($this->read(), '+OK') !== false;
+    }
+
+    public function reloadACL() {
+        $this->send("api reloadacl");
+        return strpos($this->read(), '+OK') !== false;
+    }
+
+    public function sendCommand($cmd) {
+        $this->send($cmd);
+        return $this->read();
+    }
+
+    public function disconnect() {
+        if ($this->socket) {
+            $this->send("exit");
+            fclose($this->socket);
+        }
+    }
+
+    private function send($cmd) {
+        fwrite($this->socket, $cmd . "\n\n");
+    }
+
+    private function read() {
+        $data = '';
+        while (!feof($this->socket)) {
+            $line  = fgets($this->socket, 4096);
+            $data .= $line;
+            if (trim($line) === '') break;
+        }
+        if (preg_match('/Content-Length: (\d+)/i', $data, $m))
+            $data .= fread($this->socket, (int)$m[1]);
+        return $data;
+    }
+}

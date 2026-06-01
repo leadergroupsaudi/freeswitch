@@ -1,0 +1,7 @@
+        "config\/db.php": "OK",
+        "lib\/Auth.php": "OK",
+        "lib\/FreeSwitchESL.php": "ERROR: syntax error, unexpected 'private' (T_PRIVATE), expecting variable (T_VARIABLE) line:6",
+        "lib\/DialplanXML.php": "ERROR: syntax error, unexpected '=>' (T_DOUBLE_ARROW), expecting ',' or ')' line:85",
+        "api\/handler.php": "ERROR: syntax error, unexpected '=>' (T_DOUBLE_ARROW), expecting ',' or ')' line:496"
+    },
+

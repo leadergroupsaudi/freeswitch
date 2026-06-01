@@ -1,0 +1,17 @@
+<include>
+<user id="777">
+<params>
+<param name="password" value="HR$91!"/>
+<param name="vm-password" value="HR$91!"/>
+</params>
+<variables>
+<variable name="toll_allow" value="domestic,international,local"/>
+<variable name="accountcode" value="777"/>
+<variable name="effective_caller_id_name" value="akash_leadergroup"/>
+<variable name="effective_caller_id_number" value="777"/>
+<variable name="outbound_caller_id_name" value="akash_leadergroup"/>
+<variable name="outbound_caller_id_number" value="777"/>
+<variable name="has_ip_phone" value="1"/>
+</variables>
+</user>
+</include>

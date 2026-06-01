@@ -1,0 +1,439 @@
+<?php
+ob_start();
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../lib/FreeSwitchESL.php';
+require_once __DIR__ . '/../../lib/VarsXML.php';
+require_once __DIR__ . '/../../lib/Auth.php';
+
+header('Content-Type: application/json');
+authenticateRequest();
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+if ($method !== 'POST') {
+    ob_clean();
+    http_response_code(405);
+    echo json_encode(array('success' => false, 'error' => 'Method Not Allowed — use POST'));
+    ob_end_flush();
+    exit;
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+
+function sendError($code, $message, $details = null) {
+    ob_clean();
+    http_response_code($code);
+    $resp = array('success' => false, 'error' => $message);
+    if ($details) $resp['details'] = $details;
+    echo json_encode($resp);
+    ob_end_flush();
+    exit;
+}
+
+function sendSuccess($data = array(), $code = 200) {
+    ob_clean();
+    http_response_code($code);
+    echo json_encode(array_merge(array('success' => true), $data));
+    ob_end_flush();
+    exit;
+}
+
+function getAllowedCategories() {
+    return array(
+        'network','security','sip_ports','tls',
+        'codecs','caller_id','general','video',
+        'provider','xmpp','ringtones',
+    );
+}
+
+function getAllowedCmds() {
+    return array('set','stun-set','exec-set','load','preprocess');
+}
+
+function validateVarName($name) {
+    return preg_match('/^[a-zA-Z_][a-zA-Z0-9_\-\.]*$/', $name);
+}
+
+function reloadAll($categories) {
+    $categories  = array_unique(array_filter($categories, function($c) {
+        return $c !== 'readonly';
+    }));
+
+    $eslCommands = array();
+    $reloadLog   = array();
+
+    $eslCommands[] = array('cmd' => 'api reloadxml', 'label' => 'reloadxml');
+
+    foreach ($categories as $cat) {
+        switch ($cat) {
+            case 'network':
+            case 'sip_ports':
+            case 'tls':
+                $eslCommands[] = array('cmd' => 'api sofia profile external restart', 'label' => 'sofia profile external restart');
+                $eslCommands[] = array('cmd' => 'api sofia profile internal restart', 'label' => 'sofia profile internal restart');
+                break;
+            case 'codecs':
+                $eslCommands[] = array('cmd' => 'api reload mod_sofia', 'label' => 'reload mod_sofia');
+                break;
+            case 'security':
+                $eslCommands[] = array('cmd' => 'api reloadacl',        'label' => 'reloadacl');
+                $eslCommands[] = array('cmd' => 'api reload mod_sofia', 'label' => 'reload mod_sofia');
+                break;
+        }
+    }
+
+    // Deduplicate
+    $seen = array(); $uniqueCmds = array();
+    foreach ($eslCommands as $c) {
+        if (!in_array($c['cmd'], $seen)) {
+            $seen[] = $c['cmd']; $uniqueCmds[] = $c;
+        }
+    }
+
+    try {
+        $esl = new FreeSwitchESL();
+        if (!$esl->connect()) {
+            writeLog('WARN', "ESL failed — no reload triggered");
+            return array('success' => false, 'error' => 'ESL connection failed', 'commands' => array());
+        }
+        foreach ($uniqueCmds as $c) {
+            $response    = $esl->sendCommand($c['cmd']);
+            $reloadLog[] = array(
+                'command'  => $c['label'],
+                'response' => trim($response),
+                'success'  => (strpos($response, '+OK')        !== false ||
+                               strpos($response, 'Reloading')  !== false ||
+                               strpos($response, 'Restarting') !== false),
+            );
+            writeLog('INFO', "ESL: {$c['label']} | " . trim($response));
+            usleep(200000);
+        }
+        $esl->disconnect();
+        return array('success' => true, 'commands' => $reloadLog);
+    } catch (Exception $e) {
+        writeLog('WARN', "ESL exception: " . $e->getMessage());
+        return array('success' => false, 'error' => $e->getMessage(), 'commands' => $reloadLog);
+    }
+}
+
+// ── PARSE CSV ──────────────────────────────────────────────────────────────
+
+function parseCSV($filePath) {
+    $rows    = array();
+    $errors  = array();
+    $handle  = fopen($filePath, 'r');
+
+    if (!$handle)
+        return array('rows' => array(), 'errors' => array('Failed to open CSV file'));
+
+    // Read header row
+    $header = fgetcsv($handle, 0, ',');
+    if (!$header)
+        return array('rows' => array(), 'errors' => array('CSV file is empty'));
+
+    // Normalize headers — trim + lowercase
+    $header = array_map(function($h) { return strtolower(trim($h)); }, $header);
+
+    // Required columns
+    $required = array('var_name', 'var_value');
+    foreach ($required as $req) {
+        if (!in_array($req, $header)) {
+            $errors[] = "Missing required column: '{$req}'";
+        }
+    }
+    if (!empty($errors)) {
+        fclose($handle);
+        return array('rows' => array(), 'errors' => $errors);
+    }
+
+    $lineNum = 1; // header is line 1
+    while (($row = fgetcsv($handle, 0, ',')) !== false) {
+        $lineNum++;
+
+        // Skip empty rows
+        if (empty(array_filter($row))) continue;
+
+        // Map to associative array
+        $data = array();
+        foreach ($header as $i => $col) {
+            $data[$col] = isset($row[$i]) ? trim($row[$i]) : '';
+        }
+
+        $data['_line'] = $lineNum;
+        $rows[]        = $data;
+    }
+
+    fclose($handle);
+    return array('rows' => $rows, 'errors' => $errors);
+}
+
+// ── VALIDATE ROW ───────────────────────────────────────────────────────────
+
+function validateRow($data, $lineNum) {
+    $errors = array();
+
+    if (empty($data['var_name']))
+        $errors[] = "Line {$lineNum}: var_name is required";
+    elseif (!validateVarName($data['var_name']))
+        $errors[] = "Line {$lineNum}: var_name '{$data['var_name']}' is invalid — use letters, numbers, underscores, hyphens";
+
+    if (!isset($data['var_value']) || $data['var_value'] === '')
+        $errors[] = "Line {$lineNum}: var_value is required";
+
+    if (!empty($data['cmd']) && !in_array($data['cmd'], getAllowedCmds()))
+        $errors[] = "Line {$lineNum}: cmd '{$data['cmd']}' invalid — use: " . implode(', ', getAllowedCmds());
+
+    if (!empty($data['category']) && !in_array($data['category'], getAllowedCategories()))
+        $errors[] = "Line {$lineNum}: category '{$data['category']}' invalid — use: " . implode(', ', getAllowedCategories());
+
+    if (!empty($data['category']) && $data['category'] === 'readonly')
+        $errors[] = "Line {$lineNum}: cannot use 'readonly' category";
+
+    if (!empty($data['is_sensitive']) && !in_array(strtolower($data['is_sensitive']), array('0','1','true','false','yes','no')))
+        $errors[] = "Line {$lineNum}: is_sensitive must be true/false/yes/no/0/1";
+
+    if (!empty($data['editable']) && !in_array(strtolower($data['editable']), array('0','1','true','false','yes','no')))
+        $errors[] = "Line {$lineNum}: editable must be true/false/yes/no/0/1";
+
+    return $errors;
+}
+
+function toBool($val) {
+    return in_array(strtolower((string)$val), array('1','true','yes')) ? 1 : 0;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MAIN
+// ══════════════════════════════════════════════════════════════════════════
+
+try {
+    $db = getDB();
+
+    // Check file was uploaded
+    if (empty($_FILES['file']))
+        sendError(400, 'No file uploaded', array("Send CSV file in multipart form-data with field name 'file'"));
+
+    $file = $_FILES['file'];
+
+    // Check upload errors
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $uploadErrors = array(
+            UPLOAD_ERR_INI_SIZE   => 'File too large (server limit)',
+            UPLOAD_ERR_FORM_SIZE  => 'File too large (form limit)',
+            UPLOAD_ERR_PARTIAL    => 'File only partially uploaded',
+            UPLOAD_ERR_NO_FILE    => 'No file uploaded',
+            UPLOAD_ERR_NO_TMP_DIR => 'No temp directory',
+            UPLOAD_ERR_CANT_WRITE => 'Cannot write to disk',
+            UPLOAD_ERR_EXTENSION  => 'Upload blocked by extension',
+        );
+        $msg = isset($uploadErrors[$file['error']]) ? $uploadErrors[$file['error']] : 'Unknown upload error';
+        sendError(400, $msg);
+    }
+
+    // Validate file type
+    $originalName = $file['name'];
+    $extension    = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    if ($extension !== 'csv')
+        sendError(400, 'Invalid file type', array("Only .csv files are accepted. Got: .{$extension}"));
+
+    // Max file size 2MB
+    if ($file['size'] > 2 * 1024 * 1024)
+        sendError(400, 'File too large', array("Max file size is 2MB"));
+
+    $tmpPath = $file['tmp_name'];
+
+    // Parse CSV
+    $parsed = parseCSV($tmpPath);
+    if (!empty($parsed['errors']))
+        sendError(400, 'CSV parse error', $parsed['errors']);
+
+    $rows = $parsed['rows'];
+    if (empty($rows))
+        sendError(400, 'CSV is empty', array("No data rows found after header"));
+
+    $updatedBy = isset($_POST['updated_by']) ? trim($_POST['updated_by']) : 'admin';
+
+    // ── VALIDATE ALL ROWS FIRST ────────────────────────────────────────────
+    $allErrors    = array();
+    $validRows    = array();
+    $seenNames    = array(); // track duplicates within CSV itself
+
+    foreach ($rows as $data) {
+        $lineNum = $data['_line'];
+        $errors  = validateRow($data, $lineNum);
+
+        // Check for duplicate var_name within the CSV
+        if (!empty($data['var_name'])) {
+            if (in_array($data['var_name'], $seenNames)) {
+                $errors[] = "Line {$lineNum}: var_name '{$data['var_name']}' is duplicated in CSV";
+            } else {
+                $seenNames[] = $data['var_name'];
+            }
+        }
+
+        if (!empty($errors)) {
+            $allErrors = array_merge($allErrors, $errors);
+        } else {
+            $validRows[] = $data;
+        }
+    }
+
+    // If validation errors exist — stop and report ALL errors
+    if (!empty($allErrors)) {
+        sendError(422, 'Validation failed — no data was imported', $allErrors);
+    }
+
+    // ── PROCESS EACH ROW ───────────────────────────────────────────────────
+    $inserted      = array();
+    $updated       = array();
+    $skipped       = array();
+    $toWriteXML    = array(); // var_name => ['value', 'cmd']
+    $categoriesHit = array();
+    $dbErrors      = array();
+
+    foreach ($validRows as $data) {
+        $varName     = $data['var_name'];
+        $varValue    = $data['var_value'];
+        $cmd         = !empty($data['cmd'])         ? $data['cmd']             : 'set';
+        $description = !empty($data['description']) ? $data['description']     : '';
+        $isSensitive = isset($data['is_sensitive'])  ? toBool($data['is_sensitive']) : 0;
+        $editable    = isset($data['editable'])       ? toBool($data['editable'])     : 1;
+        $category    = !empty($data['category'])     ? $data['category']        : 'general';
+        $lineNum     = $data['_line'];
+
+        // Check if var already exists in DB
+        $check = $db->prepare("SELECT id, editable FROM freeswitch_vars WHERE var_name = ?");
+        $check->execute(array($varName));
+        $existing = $check->fetch();
+
+        if ($existing) {
+            // Exists — update if editable
+            if (!$existing['editable']) {
+                $skipped[] = array(
+                    'line'     => $lineNum,
+                    'var_name' => $varName,
+                    'reason'   => 'Variable is read-only — skipped',
+                );
+                continue;
+            }
+
+            try {
+                $db->prepare("UPDATE freeswitch_vars SET
+                    var_value=:val, cmd=:cmd, description=:desc,
+                    is_sensitive=:sens, category=:cat, updated_by=:by
+                    WHERE var_name=:name")
+                   ->execute(array(
+                       ':val'  => $varValue,
+                       ':cmd'  => $cmd,
+                       ':desc' => $description,
+                       ':sens' => $isSensitive,
+                       ':cat'  => $category,
+                       ':by'   => $updatedBy,
+                       ':name' => $varName,
+                   ));
+                $updated[] = array(
+                    'line'      => $lineNum,
+                    'var_name'  => $varName,
+                    'var_value' => $isSensitive ? '********' : $varValue,
+                    'category'  => $category,
+                    'action'    => 'updated',
+                );
+            } catch (Exception $e) {
+                $dbErrors[] = "Line {$lineNum} ({$varName}): " . $e->getMessage();
+                continue;
+            }
+        } else {
+            // New variable — insert
+            try {
+                $db->prepare("INSERT INTO freeswitch_vars
+                    (var_name,var_value,cmd,description,is_sensitive,editable,category,updated_by)
+                    VALUES (:name,:val,:cmd,:desc,:sens,:edit,:cat,:by)")
+                   ->execute(array(
+                       ':name' => $varName,
+                       ':val'  => $varValue,
+                       ':cmd'  => $cmd,
+                       ':desc' => $description,
+                       ':sens' => $isSensitive,
+                       ':edit' => $editable,
+                       ':cat'  => $category,
+                       ':by'   => $updatedBy,
+                   ));
+                $inserted[] = array(
+                    'line'      => $lineNum,
+                    'var_name'  => $varName,
+                    'var_value' => $isSensitive ? '********' : $varValue,
+                    'category'  => $category,
+                    'action'    => 'inserted',
+                );
+            } catch (Exception $e) {
+                $dbErrors[] = "Line {$lineNum} ({$varName}): " . $e->getMessage();
+                continue;
+            }
+        }
+
+        // Queue for XML write
+        $toWriteXML[$varName] = array('value' => $varValue, 'cmd' => $cmd);
+        $categoriesHit[]      = $category;
+    }
+
+    // Report DB errors if any
+    if (!empty($dbErrors)) {
+        writeLog('ERROR', "Bulk upload DB errors: " . implode(' | ', $dbErrors));
+    }
+
+    // ── WRITE ALL TO vars.xml IN ONE PASS ──────────────────────────────────
+    $xmlResult   = array('success' => true, 'updated' => array(), 'appended' => array());
+    $reloadResult= array('success' => false, 'commands' => array());
+
+    if (!empty($toWriteXML)) {
+        $xmlResult = VarsXML::write($toWriteXML);
+
+        if (!$xmlResult['success']) {
+            writeLog('ERROR', "Bulk upload XML write failed: " . $xmlResult['error']);
+            // Don't rollback DB — log and report
+            $dbErrors[] = "vars.xml write failed: " . $xmlResult['error'];
+        } else {
+            writeLog('INFO', "Bulk upload XML write success | vars:" . count($toWriteXML));
+
+            // ── SINGLE RELOAD FOR ALL CATEGORIES ──────────────────────────
+            $uniqueCategories = array_values(array_unique($categoriesHit));
+            $reloadResult     = reloadAll($uniqueCategories);
+        }
+    }
+
+    $totalProcessed = count($inserted) + count($updated);
+
+    writeLog('INFO', "FS-VARS BULK UPLOAD"
+        . " | file:'{$originalName}'"
+        . " | rows:" . count($rows)
+        . " | inserted:" . count($inserted)
+        . " | updated:" . count($updated)
+        . " | skipped:" . count($skipped)
+        . " | errors:" . count($dbErrors)
+        . " | xml_updated:" . count($xmlResult['updated'])
+        . " | xml_appended:" . (isset($xmlResult['appended']) ? count($xmlResult['appended']) : 0));
+    writeSeparator();
+
+    sendSuccess(array(
+        'file'            => $originalName,
+        'total_rows'      => count($rows),
+        'processed'       => $totalProcessed,
+        'inserted_count'  => count($inserted),
+        'updated_count'   => count($updated),
+        'skipped_count'   => count($skipped),
+        'error_count'     => count($dbErrors),
+        'inserted'        => $inserted,
+        'updated'         => $updated,
+        'skipped'         => $skipped,
+        'errors'          => $dbErrors,
+        'xml_updated'     => $xmlResult['updated'],
+        'xml_appended'    => isset($xmlResult['appended']) ? $xmlResult['appended'] : array(),
+        'reload'          => $reloadResult,
+    ));
+
+} catch (Exception $e) {
+    writeLog('ERROR', "Bulk upload exception: " . $e->getMessage()
+        . " | file:" . $e->getFile() . " | line:" . $e->getLine());
+    writeSeparator();
+    sendError(500, $e->getMessage());
+}

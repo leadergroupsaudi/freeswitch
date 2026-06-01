@@ -1,0 +1,17 @@
+<include>
+<user id="129">
+<params>
+<param name="password" value="EW&834"/>
+<param name="vm-password" value="EW&834"/>
+</params>
+<variables>
+<variable name="toll_allow" value="domestic,international,local"/>
+<variable name="accountcode" value="129"/>
+<variable name="effective_caller_id_name" value="Mohamed Shakir Fadl"/>
+<variable name="effective_caller_id_number" value="129"/>
+<variable name="outbound_caller_id_name" value="Mohamed Shakir Fadl"/>
+<variable name="outbound_caller_id_number" value="129"/>
+<variable name="has_ip_phone" value="0"/>
+</variables>
+</user>
+</include>

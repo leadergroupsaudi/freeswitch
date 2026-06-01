@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IVR: Test IVR | Ext: 22000 | Generated: 2026-05-12T12:03:08.192Z -->
+<extension name="IVR_22000">
+  <condition field="destination_number" expression="^22000$">
+    <action application="answer"/>
+    <action application="set" data="ivr_extension=22000"/>
+    <action application="lua" data="ivr_engine_22000.lua"/>
+  </condition>
+</extension>

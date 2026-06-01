@@ -1,0 +1,14 @@
+{
+    "RecordingType": [
+        {
+            "RecordingTypeId": 1,
+            "TypeCode": "UR1",
+            "TypeName": "User Recording",
+            "AltTypeName": null,
+            "RecordTimeLimit": 300,
+            "TypePrefix": "USR_REC",
+            "BasePath": null,
+            "ActiveStatus": true
+        }
+    ]
+}

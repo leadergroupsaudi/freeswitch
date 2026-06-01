@@ -1,0 +1,96 @@
+================================================================================
+[2026-03-25 06:05:46] [INFO] ====== BULK EXTENSION DELETE STARTED ======
+[2026-03-25 06:05:46] [INFO] Request IP   : 106.192.233.128
+[2026-03-25 06:05:46] [INFO] Request Time : 2026-03-25 06:05:46
+================================================================================
+[2026-03-25 06:05:46] [INFO] API Key      : Validated successfully
+[2026-03-25 06:05:46] [INFO] Database     : Connected successfully
+[2026-03-25 06:05:46] [INFO] File Uploaded : users8888888888888888888888888888.csv
+[2026-03-25 06:05:46] [INFO] File Size     : 0.34KB
+[2026-03-25 06:05:46] [INFO] File Extension: csv
+[2026-03-25 06:05:46] [INFO] CSV Headers  : extension, password, caller_id_name, has_ip_phone
+[2026-03-25 06:05:46] [ERROR] HEADER — Extra columns not allowed: password, caller_id_name, has_ip_phone
+================================================================================
+================================================================================
+[2026-03-25 06:09:26] [INFO] ====== BULK EXTENSION DELETE STARTED ======
+[2026-03-25 06:09:26] [INFO] Request IP   : 106.192.233.128
+[2026-03-25 06:09:26] [INFO] Request Time : 2026-03-25 06:09:26
+================================================================================
+[2026-03-25 06:09:26] [INFO] API Key      : Validated successfully
+[2026-03-25 06:09:26] [INFO] Database     : Connected successfully
+[2026-03-25 06:09:26] [INFO] File Uploaded : users8888888888888888888888888888.csv
+[2026-03-25 06:09:26] [INFO] File Size     : 0.34KB
+[2026-03-25 06:09:26] [INFO] File Extension: csv
+[2026-03-25 06:09:26] [INFO] CSV Headers  : extension, password, caller_id_name, has_ip_phone
+[2026-03-25 06:09:26] [INFO] CSV Headers  : Validated successfully
+--------------------------------------------------------------------------------
+  VALIDATION PHASE
+--------------------------------------------------------------------------------
+[2026-03-25 06:09:26] [INFO] Validating   : Line 2 | Extension=1001
+[2026-03-25 06:09:26] [INFO] VALID        : Extension 1001 exists — ready to delete
+[2026-03-25 06:09:26] [INFO] Validating   : Line 3 | Extension=1002
+[2026-03-25 06:09:26] [INFO] VALID        : Extension 1002 exists — ready to delete
+[2026-03-25 06:09:26] [INFO] Validating   : Line 4 | Extension=3000
+[2026-03-25 06:09:26] [INFO] VALID        : Extension 3000 exists — ready to delete
+[2026-03-25 06:09:26] [INFO] Validating   : Line 5 | Extension=8000
+[2026-03-25 06:09:26] [INFO] VALID        : Extension 8000 exists — ready to delete
+[2026-03-25 06:09:26] [INFO] Validating   : Line 7 | Extension=90888
+[2026-03-25 06:09:26] [INFO] VALID        : Extension 90888 exists — ready to delete
+[2026-03-25 06:09:26] [INFO] Validating   : Line 8 | Extension=1003
+[2026-03-25 06:09:26] [INFO] VALID        : Extension 1003 exists — ready to delete
+[2026-03-25 06:09:26] [INFO] Validating   : Line 25 | Extension=12
+[2026-03-25 06:09:26] [INFO] VALID        : Extension 12 exists — ready to delete
+[2026-03-25 06:09:26] [INFO] Validating   : Line 26 | Extension=123999
+[2026-03-25 06:09:26] [INFO] VALID        : Extension 123999 exists — ready to delete
+[2026-03-25 06:09:26] [INFO] Total Rows   : 31
+[2026-03-25 06:09:26] [INFO] Valid Rows   : 8
+[2026-03-25 06:09:26] [INFO] Invalid Rows : 0
+--------------------------------------------------------------------------------
+  DELETE PHASE
+--------------------------------------------------------------------------------
+[2026-03-25 06:09:26] [INFO] Processing   : Deleting extension 1001
+[2026-03-25 06:09:26] [INFO] DB DELETE OK : Extension 1001 deleted from database
+[2026-03-25 06:09:26] [INFO] XML DELETED  : Extension 1001 — File: /usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/1001.xml
+[2026-03-25 06:09:26] [INFO] SUCCESS      : Extension 1001 deleted successfully
+[2026-03-25 06:09:26] [INFO] Processing   : Deleting extension 1002
+[2026-03-25 06:09:26] [INFO] DB DELETE OK : Extension 1002 deleted from database
+[2026-03-25 06:09:26] [INFO] XML DELETED  : Extension 1002 — File: /usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/1002.xml
+[2026-03-25 06:09:26] [INFO] SUCCESS      : Extension 1002 deleted successfully
+[2026-03-25 06:09:26] [INFO] Processing   : Deleting extension 3000
+[2026-03-25 06:09:26] [INFO] DB DELETE OK : Extension 3000 deleted from database
+[2026-03-25 06:09:26] [INFO] XML DELETED  : Extension 3000 — File: /usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/3000.xml
+[2026-03-25 06:09:26] [INFO] SUCCESS      : Extension 3000 deleted successfully
+[2026-03-25 06:09:26] [INFO] Processing   : Deleting extension 8000
+[2026-03-25 06:09:26] [INFO] DB DELETE OK : Extension 8000 deleted from database
+[2026-03-25 06:09:26] [INFO] XML DELETED  : Extension 8000 — File: /usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/8000.xml
+[2026-03-25 06:09:26] [INFO] SUCCESS      : Extension 8000 deleted successfully
+[2026-03-25 06:09:26] [INFO] Processing   : Deleting extension 90888
+[2026-03-25 06:09:27] [INFO] DB DELETE OK : Extension 90888 deleted from database
+[2026-03-25 06:09:27] [INFO] XML DELETED  : Extension 90888 — File: /usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/90888.xml
+[2026-03-25 06:09:27] [INFO] SUCCESS      : Extension 90888 deleted successfully
+[2026-03-25 06:09:27] [INFO] Processing   : Deleting extension 1003
+[2026-03-25 06:09:27] [INFO] DB DELETE OK : Extension 1003 deleted from database
+[2026-03-25 06:09:27] [INFO] XML DELETED  : Extension 1003 — File: /usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/1003.xml
+[2026-03-25 06:09:27] [INFO] SUCCESS      : Extension 1003 deleted successfully
+[2026-03-25 06:09:27] [INFO] Processing   : Deleting extension 12
+[2026-03-25 06:09:27] [INFO] DB DELETE OK : Extension 12 deleted from database
+[2026-03-25 06:09:27] [INFO] XML DELETED  : Extension 12 — File: /usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/12.xml
+[2026-03-25 06:09:27] [INFO] SUCCESS      : Extension 12 deleted successfully
+[2026-03-25 06:09:27] [INFO] Processing   : Deleting extension 123999
+[2026-03-25 06:09:27] [INFO] DB DELETE OK : Extension 123999 deleted from database
+[2026-03-25 06:09:27] [INFO] XML DELETED  : Extension 123999 — File: /usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/123999.xml
+[2026-03-25 06:09:27] [INFO] SUCCESS      : Extension 123999 deleted successfully
+--------------------------------------------------------------------------------
+  FREESWITCH RELOAD
+--------------------------------------------------------------------------------
+[2026-03-25 06:09:27] [INFO] ReloadXML    : +OK [Success]
+[2026-03-25 06:09:27] [INFO] FREESWITCH OK: reloadxml completed successfully
+--------------------------------------------------------------------------------
+  DELETE SUMMARY
+--------------------------------------------------------------------------------
+[2026-03-25 06:09:27] [INFO] Total Rows   : 8
+[2026-03-25 06:09:27] [INFO] Deleted      : 8
+[2026-03-25 06:09:27] [INFO] Failed       : 0
+================================================================================
+[2026-03-25 06:09:27] [INFO] ====== BULK EXTENSION DELETE COMPLETED ======
+================================================================================

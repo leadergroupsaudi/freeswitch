@@ -1,0 +1,33 @@
+<?php
+define('API_KEY',   'LeaderFS@Axionic#2026');
+define('LOG_FILE',  '/var/log/dialplan-api.log');
+
+function writeLog(string $level, string $message): void {
+    $ip   = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $time = date('Y-m-d H:i:s');
+    $line = "[{$time}] [{$level}] [IP:{$ip}] {$message}" . PHP_EOL;
+    file_put_contents(LOG_FILE, $line, FILE_APPEND | LOCK_EX);
+}
+
+function writeSeparator(): void {
+    file_put_contents(LOG_FILE, str_repeat('-', 80) . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
+function authenticateRequest(): void {
+    $requestKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
+
+    if ($requestKey !== API_KEY) {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        writeLog('ERROR', "UNAUTHORIZED — Invalid or missing API key from IP: {$ip}");
+        writeSeparator();
+        http_response_code(401);
+        echo json_encode([
+            'http_code' => 401,
+            'success'   => false,
+            'message'   => 'Unauthorized - Invalid or missing API key'
+        ]);
+        exit;
+    }
+
+    writeLog('INFO', "Authorized request — Method: {$_SERVER['REQUEST_METHOD']} URI: {$_SERVER['REQUEST_URI']}");
+}

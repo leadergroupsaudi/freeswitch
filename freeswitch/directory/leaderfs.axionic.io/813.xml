@@ -1,0 +1,17 @@
+<include>
+<user id="813">
+<params>
+<param name="password" value="Pass123"/>
+<param name="vm-password" value="Pass123"/>
+</params>
+<variables>
+<variable name="toll_allow" value="domestic,international,local"/>
+<variable name="accountcode" value="813"/>
+<variable name="effective_caller_id_name" value="Tamanna Rabadiya"/>
+<variable name="effective_caller_id_number" value="813"/>
+<variable name="outbound_caller_id_name" value="Tamanna Rabadiya"/>
+<variable name="outbound_caller_id_number" value="813"/>
+<variable name="has_ip_phone" value="0"/>
+</variables>
+</user>
+</include>

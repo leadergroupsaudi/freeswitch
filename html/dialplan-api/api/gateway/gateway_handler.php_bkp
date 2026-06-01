@@ -1,0 +1,644 @@
+<?php
+ob_start();
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../lib/FreeSwitchESL.php';
+require_once __DIR__ . '/../../lib/GatewayXML.php';
+require_once __DIR__ . '/../../lib/Auth.php';
+
+header('Content-Type: application/json');
+authenticateRequest();
+
+$method = $_SERVER['REQUEST_METHOD'];
+$uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// ── EXTRACT IDs + ACTION ───────────────────────────────────────────────────
+$gatewayId = null;
+$isStatus  = false;
+$isTest    = false;
+$isEnable  = false;
+$isDisable = false;
+$isSync    = false;
+
+if (preg_match('#/gateways/(\d+)/status#',  $uri, $m)) { $gatewayId = (int)$m[1]; $isStatus  = true; }
+elseif (preg_match('#/gateways/(\d+)/test#',    $uri, $m)) { $gatewayId = (int)$m[1]; $isTest    = true; }
+elseif (preg_match('#/gateways/(\d+)/enable#',  $uri, $m)) { $gatewayId = (int)$m[1]; $isEnable  = true; }
+elseif (preg_match('#/gateways/(\d+)/disable#', $uri, $m)) { $gatewayId = (int)$m[1]; $isDisable = true; }
+elseif (preg_match('#/gateways/sync#',           $uri))     { $isSync    = true; }
+elseif (preg_match('#/gateways/(\d+)#',          $uri, $m)) { $gatewayId = (int)$m[1]; }
+
+// ── ENCRYPTION ─────────────────────────────────────────────────────────────
+define('ENCRYPT_KEY',    'LeaderFS_GW_Secret_2026!@#$%^&*()');
+define('ENCRYPT_METHOD', 'AES-256-CBC');
+
+function encryptPassword($password) {
+    $iv        = openssl_random_pseudo_bytes(openssl_cipher_iv_length(ENCRYPT_METHOD));
+    $encrypted = openssl_encrypt($password, ENCRYPT_METHOD, ENCRYPT_KEY, 0, $iv);
+    return base64_encode($iv . '::' . $encrypted);
+}
+
+function decryptPassword($encrypted) {
+    $decoded = base64_decode($encrypted);
+    if (strpos($decoded, '::') === false) return $encrypted;
+    list($iv, $enc) = explode('::', $decoded, 2);
+    return openssl_decrypt($enc, ENCRYPT_METHOD, ENCRYPT_KEY, 0, $iv);
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+
+function jsonBody() {
+    $data = json_decode(file_get_contents('php://input'), true);
+    return is_array($data) ? $data : array();
+}
+
+function sendError($code, $message, $details = null) {
+    ob_clean();
+    http_response_code($code);
+    $resp = array('success' => false, 'error' => $message);
+    if ($details) $resp['details'] = $details;
+    echo json_encode($resp);
+    ob_end_flush();
+    exit;
+}
+
+function sendSuccess($data = array(), $code = 200) {
+    ob_clean();
+    http_response_code($code);
+    echo json_encode(array_merge(array('success' => true), $data));
+    ob_end_flush();
+    exit;
+}
+
+function formatGateway($row) {
+    $row['register']           = (bool)$row['register'];
+    $row['caller_id_in_from']  = (bool)$row['caller_id_in_from'];
+    $row['enabled']            = (bool)$row['enabled'];
+    $row['expire_seconds']     = (int)$row['expire_seconds'];
+    $row['retry_seconds']      = (int)$row['retry_seconds'];
+    $row['password']           = '********';
+    return $row;
+}
+
+// ── ESL OPERATIONS ─────────────────────────────────────────────────────────
+
+function startGateway($gatewayName) {
+    try {
+        $esl = new FreeSwitchESL();
+        if ($esl->connect()) {
+            $response = $esl->sendCommand("api sofia profile external startgw {$gatewayName}");
+            $esl->disconnect();
+            writeLog('INFO', "startgw | gateway:{$gatewayName} | response:" . trim($response));
+            return array('success' => true, 'response' => trim($response));
+        }
+        writeLog('WARN', "ESL failed — startgw not triggered for: {$gatewayName}");
+        return array('success' => false, 'error' => 'ESL connection failed');
+    } catch (Exception $e) {
+        writeLog('WARN', "ESL startgw exception: " . $e->getMessage());
+        return array('success' => false, 'error' => $e->getMessage());
+    }
+}
+
+function killGateway($gatewayName) {
+    try {
+        $esl = new FreeSwitchESL();
+        if ($esl->connect()) {
+            $response = $esl->sendCommand("api sofia profile external killgw {$gatewayName}");
+            $esl->disconnect();
+            writeLog('INFO', "killgw | gateway:{$gatewayName} | response:" . trim($response));
+            return array('success' => true, 'response' => trim($response));
+        }
+        writeLog('WARN', "ESL failed — killgw not triggered for: {$gatewayName}");
+        return array('success' => false, 'error' => 'ESL connection failed');
+    } catch (Exception $e) {
+        writeLog('WARN', "ESL killgw exception: " . $e->getMessage());
+        return array('success' => false, 'error' => $e->getMessage());
+    }
+}
+
+function reloadSipProfile() {
+    try {
+        $esl = new FreeSwitchESL();
+        if ($esl->connect()) {
+            $esl->sendCommand("api sofia profile external rescan");
+            $esl->disconnect();
+            writeLog('INFO', "FreeSWITCH sofia profile external rescan triggered");
+        } else {
+            writeLog('WARN', "ESL failed — profile rescan not triggered");
+        }
+    } catch (Exception $e) {
+        writeLog('WARN', "ESL rescan exception: " . $e->getMessage());
+    }
+}
+
+function getGatewayStatus($gatewayName) {
+    try {
+        $esl = new FreeSwitchESL();
+        if (!$esl->connect())
+            return array('status' => 'unknown', 'error' => 'ESL connection failed');
+        $response = $esl->sendCommand("api sofia status gateway {$gatewayName}");
+        $esl->disconnect();
+
+        if (strpos($response, 'REGED')     !== false) return array('status' => 'registered',     'raw' => trim($response));
+        if (strpos($response, 'FAILED')    !== false) return array('status' => 'failed',         'raw' => trim($response));
+        if (strpos($response, 'TRYING')    !== false) return array('status' => 'trying',         'raw' => trim($response));
+        if (strpos($response, 'EXPIRE')    !== false) return array('status' => 'expired',        'raw' => trim($response));
+        if (strpos($response, 'NOREG')     !== false) return array('status' => 'not_registered', 'raw' => trim($response));
+        if (strpos($response, 'not found') !== false) return array('status' => 'not_found',      'raw' => trim($response));
+        return array('status' => 'unknown', 'raw' => trim($response));
+    } catch (Exception $e) {
+        return array('status' => 'error', 'error' => $e->getMessage());
+    }
+}
+
+function writeGatewayXML($gatewayRow, $plainPass) {
+    if ($gatewayRow['enabled']) {
+        $xmlResult = GatewayXML::write($gatewayRow, $plainPass);
+        if (!$xmlResult['success']) {
+            writeLog('WARN', "XML write failed: " . $xmlResult['error']);
+            return false;
+        }
+        writeLog('INFO', "GW XML written: " . $xmlResult['file']);
+        return true;
+    } else {
+        GatewayXML::delete($gatewayRow['gateway_name']);
+        writeLog('INFO', "GW disabled — XML removed: " . $gatewayRow['gateway_name']);
+        return false;
+    }
+}
+
+// ── SYNC DISABLED GATEWAYS ─────────────────────────────────────────────────
+// After any rescan, FreeSWITCH may bring all gateways up.
+// This function reads DB and kills any gateway that should be disabled.
+
+function syncDisabledGateways($db) {
+    $stmt = $db->query(
+        "SELECT gateway_name FROM sip_gateways WHERE enabled = 0"
+    );
+    $disabled = $stmt->fetchAll();
+
+    if (empty($disabled)) return array();
+
+    $killed = array();
+    foreach ($disabled as $gw) {
+        $result = killGateway($gw['gateway_name']);
+        $killed[] = array(
+            'gateway_name' => $gw['gateway_name'],
+            'killgw'       => $result,
+        );
+        writeLog('INFO', "Sync: killgw for disabled gateway: {$gw['gateway_name']}");
+    }
+    return $killed;
+}
+
+// ── BUILD PARAMS ───────────────────────────────────────────────────────────
+
+function buildParams($body, $existing, $encPass) {
+    $g = $existing ? $existing : array();
+    return array(
+        ':gn'    => isset($body['gateway_name'])             ? $body['gateway_name']              : (isset($g['gateway_name'])              ? $g['gateway_name']              : ''),
+        ':u'     => isset($body['username'])                  ? $body['username']                  : (isset($g['username'])                  ? $g['username']                  : ''),
+        ':p'     => $encPass,
+        ':r'     => isset($body['realm'])                     ? $body['realm']                     : (isset($g['realm'])                     ? $g['realm']                     : ''),
+        ':pr'    => isset($body['proxy'])                     ? $body['proxy']                     : (isset($g['proxy'])                     ? $g['proxy']                     : null),
+        ':rpr'   => isset($body['register_proxy'])            ? $body['register_proxy']            : (isset($g['register_proxy'])            ? $g['register_proxy']            : null),
+        ':acl'   => isset($body['apply_inbound_acl'])         ? $body['apply_inbound_acl']         : (isset($g['apply_inbound_acl'])         ? $g['apply_inbound_acl']         : null),
+        ':fu'    => isset($body['from_user'])                  ? $body['from_user']                 : (isset($g['from_user'])                 ? $g['from_user']                 : null),
+        ':fd'    => isset($body['from_domain'])               ? $body['from_domain']               : (isset($g['from_domain'])               ? $g['from_domain']               : null),
+        ':reg'   => isset($body['register'])                  ? (int)$body['register']             : (isset($g['register'])                  ? (int)$g['register']             : 1),
+        ':rt'    => isset($body['register_transport'])        ? $body['register_transport']        : (isset($g['register_transport'])        ? $g['register_transport']        : 'udp'),
+        ':cif'   => isset($body['caller_id_in_from'])         ? (int)$body['caller_id_in_from']    : (isset($g['caller_id_in_from'])         ? (int)$g['caller_id_in_from']    : 0),
+        ':ocn'   => isset($body['outbound_caller_id_name'])   ? $body['outbound_caller_id_name']   : (isset($g['outbound_caller_id_name'])   ? $g['outbound_caller_id_name']   : null),
+        ':ocnum' => isset($body['outbound_caller_id_number']) ? $body['outbound_caller_id_number'] : (isset($g['outbound_caller_id_number']) ? $g['outbound_caller_id_number'] : null),
+        ':cp'    => isset($body['codec_prefs'])               ? $body['codec_prefs']               : (isset($g['codec_prefs'])               ? $g['codec_prefs']               : 'PCMU,PCMA'),
+        ':es'    => isset($body['expire_seconds'])            ? (int)$body['expire_seconds']       : (isset($g['expire_seconds'])            ? (int)$g['expire_seconds']       : 3600),
+        ':rs'    => isset($body['retry_seconds'])             ? (int)$body['retry_seconds']        : (isset($g['retry_seconds'])             ? (int)$g['retry_seconds']        : 30),
+        ':ping'  => isset($body['ping'])                      ? $body['ping']                      : (isset($g['ping'])                      ? $g['ping']                      : null),
+        ':en'    => isset($body['enabled'])                   ? (int)$body['enabled']              : (isset($g['enabled'])                   ? (int)$g['enabled']              : 1),
+        ':cb'    => isset($body['created_by'])                ? $body['created_by']                : (isset($g['created_by'])                ? $g['created_by']                : 'admin'),
+    );
+}
+
+function validateGateway($body, $isUpdate = false) {
+    $errors = array();
+    if (!$isUpdate) {
+        if (empty($body['gateway_name'])) $errors[] = "gateway_name is required";
+        if (empty($body['username']))     $errors[] = "username is required";
+        if (empty($body['password']))     $errors[] = "password is required";
+        if (empty($body['realm']))        $errors[] = "realm is required";
+    }
+    if (!empty($body['gateway_name']) && !preg_match('/^[\w\-\.]+$/', $body['gateway_name']))
+        $errors[] = "gateway_name: only letters, numbers, hyphens, dots, underscores";
+    if (isset($body['register_transport']) &&
+        !in_array($body['register_transport'], array('udp','tcp','tls','sip')))
+        $errors[] = "register_transport: must be udp, tcp, tls, or sip";
+    if (isset($body['expire_seconds']) &&
+        ((int)$body['expire_seconds'] < 60 || (int)$body['expire_seconds'] > 86400))
+        $errors[] = "expire_seconds: must be between 60 and 86400";
+    if (isset($body['retry_seconds']) &&
+        ((int)$body['retry_seconds'] < 1 || (int)$body['retry_seconds'] > 300))
+        $errors[] = "retry_seconds: must be between 1 and 300";
+    if (isset($body['register']) && !is_bool($body['register']))
+        $errors[] = "register: must be true or false";
+    if (isset($body['caller_id_in_from']) && !is_bool($body['caller_id_in_from']))
+        $errors[] = "caller_id_in_from: must be true or false";
+    if (isset($body['enabled']) && !is_bool($body['enabled']))
+        $errors[] = "enabled: must be true or false";
+    return $errors;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  ROUTING
+// ══════════════════════════════════════════════════════════════════════════
+
+try {
+    $db = getDB();
+
+    // ── GET /api/admin/gateways ── list all ────────────────────────────────
+    if ($method === 'GET' && !$gatewayId && !$isStatus && !$isTest
+        && !$isEnable && !$isDisable && !$isSync) {
+        $rows = $db->query("SELECT * FROM sip_gateways ORDER BY id ASC")->fetchAll();
+        $data = array();
+        foreach ($rows as $row) $data[] = formatGateway($row);
+        writeLog('INFO', "GW GET ALL — " . count($data) . " gateways");
+        writeSeparator();
+        sendSuccess(array('data' => $data, 'total' => count($data)));
+    }
+
+    // ── GET /api/admin/gateways/:id ── single ──────────────────────────────
+    if ($method === 'GET' && $gatewayId && !$isStatus && !$isTest
+        && !$isEnable && !$isDisable) {
+        $stmt = $db->prepare("SELECT * FROM sip_gateways WHERE id = ?");
+        $stmt->execute(array($gatewayId));
+        $row = $stmt->fetch();
+        if (!$row) sendError(404, 'Gateway not found');
+        writeLog('INFO', "GW GET | ID:{$gatewayId} | name:'{$row['gateway_name']}'");
+        writeSeparator();
+        sendSuccess(array('data' => formatGateway($row)));
+    }
+
+    // ── GET /api/admin/gateways/:id/status ────────────────────────────────
+    if ($method === 'GET' && $gatewayId && $isStatus) {
+        $stmt = $db->prepare("SELECT gateway_name, enabled FROM sip_gateways WHERE id = ?");
+        $stmt->execute(array($gatewayId));
+        $row = $stmt->fetch();
+        if (!$row) sendError(404, 'Gateway not found');
+
+        if (!$row['enabled'])
+            sendSuccess(array(
+                'gateway_id'   => $gatewayId,
+                'gateway_name' => $row['gateway_name'],
+                'status'       => 'disabled',
+                'message'      => 'Gateway is disabled',
+            ));
+
+        $status = getGatewayStatus($row['gateway_name']);
+        writeLog('INFO', "GW STATUS | ID:{$gatewayId} | status:{$status['status']}");
+        writeSeparator();
+        sendSuccess(array(
+            'gateway_id'   => $gatewayId,
+            'gateway_name' => $row['gateway_name'],
+            'status'       => $status['status'],
+            'raw'          => isset($status['raw']) ? $status['raw'] : null,
+        ));
+    }
+
+    // ── POST /api/admin/gateways/:id/test ── test connection ───────────────
+    if ($method === 'POST' && $gatewayId && $isTest) {
+        $stmt = $db->prepare("SELECT * FROM sip_gateways WHERE id = ?");
+        $stmt->execute(array($gatewayId));
+        $row = $stmt->fetch();
+        if (!$row) sendError(404, 'Gateway not found');
+        if (!$row['enabled']) sendError(400, 'Gateway is disabled — enable it first');
+
+        try {
+            $esl = new FreeSwitchESL();
+            if (!$esl->connect()) sendError(503, 'FreeSWITCH ESL connection failed');
+            $esl->sendCommand("api sofia profile external killgw {$row['gateway_name']}");
+            sleep(1);
+            $esl->sendCommand("api sofia profile external startgw {$row['gateway_name']}");
+            $esl->disconnect();
+            sleep(2);
+
+            $status = getGatewayStatus($row['gateway_name']);
+            writeLog('INFO', "GW TEST | ID:{$gatewayId} | status:{$status['status']}");
+            writeSeparator();
+            sendSuccess(array(
+                'gateway_id'   => $gatewayId,
+                'gateway_name' => $row['gateway_name'],
+                'status'       => $status['status'],
+                'message'      => $status['status'] === 'registered'
+                                  ? 'Gateway registered successfully'
+                                  : 'Gateway registration ' . $status['status'],
+                'raw'          => isset($status['raw']) ? $status['raw'] : null,
+            ));
+        } catch (Exception $e) {
+            sendError(500, 'Test failed: ' . $e->getMessage());
+        }
+    }
+
+    // ── POST /api/admin/gateways/:id/enable ── enable gateway ─────────────
+    if ($method === 'POST' && $gatewayId && $isEnable) {
+        $stmt = $db->prepare("SELECT * FROM sip_gateways WHERE id = ?");
+        $stmt->execute(array($gatewayId));
+        $row = $stmt->fetch();
+        if (!$row) sendError(404, 'Gateway not found');
+
+        if ($row['enabled']) {
+            sendSuccess(array(
+                'gateway_id'   => $gatewayId,
+                'gateway_name' => $row['gateway_name'],
+                'enabled'      => true,
+                'message'      => 'Gateway is already enabled',
+                'esl'          => null,
+            ));
+        }
+
+        // STEP 1: Update DB — enabled = true
+        try {
+            $db->prepare("UPDATE sip_gateways SET enabled = 1 WHERE id = ?")
+               ->execute(array($gatewayId));
+        } catch (Exception $e) {
+            sendError(500, 'Database error: ' . $e->getMessage());
+        }
+
+        // STEP 2: Write XML file
+        $plainPass = decryptPassword($row['password']);
+        $row['enabled'] = 1;
+        $xmlResult = GatewayXML::write($row, $plainPass);
+        if (!$xmlResult['success']) {
+            // Rollback DB
+            $db->prepare("UPDATE sip_gateways SET enabled = 0 WHERE id = ?")
+               ->execute(array($gatewayId));
+            sendError(500, 'Failed to write gateway XML — DB rolled back',
+                array($xmlResult['error']));
+        }
+
+        // STEP 3: rescan + startgw
+        reloadSipProfile();
+        $eslResult = startGateway($row['gateway_name']);
+
+        // STEP 4: Kill any other disabled gateways that rescan may have brought up
+        $killed = syncDisabledGateways($db);
+
+        writeLog('INFO', "GW ENABLED | ID:{$gatewayId} | name:'{$row['gateway_name']}'");
+        writeSeparator();
+        sendSuccess(array(
+            'gateway_id'       => $gatewayId,
+            'gateway_name'     => $row['gateway_name'],
+            'enabled'          => true,
+            'message'          => 'Gateway enabled successfully',
+            'esl'              => $eslResult,
+            'disabled_synced'  => $killed,
+        ));
+    }
+
+    // ── POST /api/admin/gateways/:id/disable ── disable gateway ────────────
+    if ($method === 'POST' && $gatewayId && $isDisable) {
+        $stmt = $db->prepare("SELECT * FROM sip_gateways WHERE id = ?");
+        $stmt->execute(array($gatewayId));
+        $row = $stmt->fetch();
+        if (!$row) sendError(404, 'Gateway not found');
+
+        if (!$row['enabled']) {
+            sendSuccess(array(
+                'gateway_id'   => $gatewayId,
+                'gateway_name' => $row['gateway_name'],
+                'enabled'      => false,
+                'message'      => 'Gateway is already disabled',
+                'esl'          => null,
+            ));
+        }
+
+        // STEP 1: Update DB — enabled = false
+        try {
+            $db->prepare("UPDATE sip_gateways SET enabled = 0 WHERE id = ?")
+               ->execute(array($gatewayId));
+        } catch (Exception $e) {
+            sendError(500, 'Database error: ' . $e->getMessage());
+        }
+
+        // STEP 2: Remove XML file
+        GatewayXML::delete($row['gateway_name']);
+
+        // STEP 3: killgw — bring it down in FreeSWITCH
+        $eslResult = killGateway($row['gateway_name']);
+
+        writeLog('INFO', "GW DISABLED | ID:{$gatewayId} | name:'{$row['gateway_name']}'");
+        writeSeparator();
+        sendSuccess(array(
+            'gateway_id'   => $gatewayId,
+            'gateway_name' => $row['gateway_name'],
+            'enabled'      => false,
+            'message'      => 'Gateway disabled successfully',
+            'esl'          => $eslResult,
+        ));
+    }
+
+    // ── POST /api/admin/gateways/sync ── sync all disabled gateways ─────────
+    // Call this after any rescan to ensure disabled gateways stay down
+    if ($method === 'POST' && $isSync) {
+        $killed = syncDisabledGateways($db);
+
+        // Also check enabled gateways are actually up
+        $stmt    = $db->query("SELECT * FROM sip_gateways WHERE enabled = 1");
+        $enabled = $stmt->fetchAll();
+        $started = array();
+        foreach ($enabled as $gw) {
+            $status = getGatewayStatus($gw['gateway_name']);
+            if (in_array($status['status'], array('not_found','failed','unknown'))) {
+                // Gateway should be up but isn't — start it
+                $plainPass = decryptPassword($gw['password']);
+                GatewayXML::write($gw, $plainPass);
+                $r         = startGateway($gw['gateway_name']);
+                $started[] = array(
+                    'gateway_name' => $gw['gateway_name'],
+                    'status_was'   => $status['status'],
+                    'startgw'      => $r,
+                );
+                writeLog('INFO', "Sync: startgw for enabled-but-down gateway: {$gw['gateway_name']}");
+            }
+        }
+
+        writeLog('INFO', "GW SYNC | killed_disabled:" . count($killed)
+            . " | restarted_enabled:" . count($started));
+        writeSeparator();
+        sendSuccess(array(
+            'message'            => 'Gateway sync complete',
+            'disabled_killed'    => $killed,
+            'enabled_restarted'  => $started,
+            'total_disabled'     => count($killed),
+            'total_restarted'    => count($started),
+        ));
+    }
+
+    // ── POST /api/admin/gateways ── create ─────────────────────────────────
+    if ($method === 'POST' && !$gatewayId && !$isSync) {
+        $body   = jsonBody();
+        $errors = validateGateway($body, false);
+        if (!empty($errors)) sendError(422, 'Validation failed', $errors);
+
+        $dup = $db->prepare("SELECT COUNT(*) FROM sip_gateways WHERE gateway_name = ?");
+        $dup->execute(array($body['gateway_name']));
+        if ((int)$dup->fetchColumn() > 0)
+            sendError(409, 'Duplicate entry',
+                array("Gateway '{$body['gateway_name']}' already exists"));
+
+        $plainPass = $body['password'];
+        $encPass   = encryptPassword($plainPass);
+        $params    = buildParams($body, null, $encPass);
+        $newId     = null;
+
+        try {
+            $db->beginTransaction();
+            $s = $db->prepare("INSERT INTO sip_gateways
+                (gateway_name,username,password,realm,proxy,
+                 register_proxy,apply_inbound_acl,from_user,from_domain,
+                 register,register_transport,caller_id_in_from,
+                 outbound_caller_id_name,outbound_caller_id_number,
+                 codec_prefs,expire_seconds,retry_seconds,
+                 ping,enabled,created_by)
+                VALUES
+                (:gn,:u,:p,:r,:pr,
+                 :rpr,:acl,:fu,:fd,
+                 :reg,:rt,:cif,
+                 :ocn,:ocnum,
+                 :cp,:es,:rs,
+                 :ping,:en,:cb)");
+            $s->execute($params);
+            $newId = (int)$db->lastInsertId();
+            $db->commit();
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            sendError(500, 'Database error: ' . $e->getMessage());
+        }
+
+        $fetch = $db->prepare("SELECT * FROM sip_gateways WHERE id = ?");
+        $fetch->execute(array($newId));
+        $savedRow = $fetch->fetch();
+
+        if ($savedRow['enabled']) {
+            $xmlResult = GatewayXML::write($savedRow, $plainPass);
+            if (!$xmlResult['success']) {
+                $db->prepare("DELETE FROM sip_gateways WHERE id = ?")->execute(array($newId));
+                sendError(500, 'Gateway XML write failed — rolled back',
+                    array($xmlResult['error']));
+            }
+            reloadSipProfile();
+            startGateway($savedRow['gateway_name']);
+            // Kill any disabled gateways rescan may have brought up
+            syncDisabledGateways($db);
+        }
+
+        writeLog('INFO', "GW CREATED | ID:{$newId} | name:'{$savedRow['gateway_name']}'");
+        writeSeparator();
+        sendSuccess(array('id' => $newId), 201);
+    }
+
+    // ── PUT /api/admin/gateways/:id ── update ──────────────────────────────
+    if ($method === 'PUT' && $gatewayId && !$isEnable && !$isDisable) {
+        $stmt = $db->prepare("SELECT * FROM sip_gateways WHERE id = ?");
+        $stmt->execute(array($gatewayId));
+        $existing = $stmt->fetch();
+        if (!$existing) sendError(404, 'Gateway not found');
+
+        $body   = jsonBody();
+        $errors = validateGateway($body, true);
+        if (!empty($errors)) sendError(422, 'Validation failed', $errors);
+
+        if (!empty($body['gateway_name'])) {
+            $dup = $db->prepare(
+                "SELECT COUNT(*) FROM sip_gateways WHERE gateway_name=? AND id!=?"
+            );
+            $dup->execute(array($body['gateway_name'], $gatewayId));
+            if ((int)$dup->fetchColumn() > 0)
+                sendError(409, 'Duplicate entry',
+                    array("Gateway '{$body['gateway_name']}' already exists"));
+        }
+
+        if (!empty($body['password']) && $body['password'] !== '********') {
+            $plainPass = $body['password'];
+            $encPass   = encryptPassword($plainPass);
+        } else {
+            $plainPass = decryptPassword($existing['password']);
+            $encPass   = $existing['password'];
+        }
+
+        $oldName = $existing['gateway_name'];
+        $params  = buildParams($body, $existing, $encPass);
+        $params[':id'] = $gatewayId;
+
+        try {
+            $db->beginTransaction();
+            $db->prepare("UPDATE sip_gateways SET
+                gateway_name=:gn,username=:u,password=:p,realm=:r,
+                proxy=:pr,register_proxy=:rpr,apply_inbound_acl=:acl,
+                from_user=:fu,from_domain=:fd,register=:reg,
+                register_transport=:rt,caller_id_in_from=:cif,
+                outbound_caller_id_name=:ocn,outbound_caller_id_number=:ocnum,
+                codec_prefs=:cp,expire_seconds=:es,retry_seconds=:rs,
+                ping=:ping,enabled=:en WHERE id=:id")
+               ->execute($params);
+            $db->commit();
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            sendError(500, 'Database error: ' . $e->getMessage());
+        }
+
+        $fetch = $db->prepare("SELECT * FROM sip_gateways WHERE id = ?");
+        $fetch->execute(array($gatewayId));
+        $updatedRow = $fetch->fetch();
+        $newName    = $updatedRow['gateway_name'];
+
+        // Kill old gateway
+        killGateway($oldName);
+
+        if ($oldName !== $newName)
+            GatewayXML::rename($oldName, $newName);
+
+        if ($updatedRow['enabled']) {
+            GatewayXML::write($updatedRow, $plainPass);
+            reloadSipProfile();
+            startGateway($newName);
+            // Kill any disabled gateways rescan may have brought up
+            syncDisabledGateways($db);
+        } else {
+            GatewayXML::delete($newName);
+        }
+
+        writeLog('INFO', "GW UPDATED | ID:{$gatewayId} | name:'{$newName}'"
+            . " | enabled:" . ($updatedRow['enabled'] ? 'true' : 'false'));
+        writeSeparator();
+        sendSuccess();
+    }
+
+    // ── DELETE /api/admin/gateways/:id ── delete ───────────────────────────
+    if ($method === 'DELETE' && $gatewayId && !$isEnable && !$isDisable) {
+        $stmt = $db->prepare("SELECT * FROM sip_gateways WHERE id = ?");
+        $stmt->execute(array($gatewayId));
+        $existing = $stmt->fetch();
+        if (!$existing) sendError(404, 'Gateway not found');
+
+        killGateway($existing['gateway_name']);
+        GatewayXML::delete($existing['gateway_name']);
+
+        try {
+            $db->beginTransaction();
+            $db->prepare("DELETE FROM sip_gateways WHERE id = ?")->execute(array($gatewayId));
+            $db->commit();
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            sendError(500, 'Database error: ' . $e->getMessage());
+        }
+
+        writeLog('INFO', "GW DELETED | ID:{$gatewayId} | name:'{$existing['gateway_name']}'");
+        writeSeparator();
+        sendSuccess();
+    }
+
+    sendError(405, 'Method Not Allowed');
+
+} catch (Exception $e) {
+    writeLog('ERROR', "GW Exception: " . $e->getMessage()
+        . " | file:" . $e->getFile() . " | line:" . $e->getLine());
+    writeSeparator();
+    sendError(500, $e->getMessage());
+}

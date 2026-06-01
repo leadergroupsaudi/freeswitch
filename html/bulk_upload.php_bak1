@@ -1,0 +1,328 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+header('Content-Type: application/json');
+
+// ============================================
+// API KEY CHECK
+// ============================================
+$valid_api_key   = 'LeaderFS@Axionic#2026';
+$request_api_key = $_SERVER['HTTP_X_API_KEY'] ?? '';
+
+if ($request_api_key !== $valid_api_key) {
+    http_response_code(401);
+    echo json_encode(['http_code' => 401, 'success' => false, 'message' => 'Unauthorized - Invalid or missing API key']);
+    exit;
+}
+
+// ============================================
+// DB CONNECTION
+// ============================================
+$conn = new mysqli("localhost", "phpuser", "php123", "pbx_user");
+if ($conn->connect_error) {
+    http_response_code(500);
+    echo json_encode(['http_code' => 500, 'success' => false, 'message' => 'Database connection failed']);
+    exit;
+}
+
+// ============================================
+// FILE CHECK
+// ============================================
+if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
+    http_response_code(400);
+    echo json_encode(['http_code' => 400, 'success' => false, 'message' => 'CSV file not uploaded']);
+    exit;
+}
+
+// File extension must be .csv
+$file_ext = strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION));
+if ($file_ext !== 'csv') {
+    http_response_code(400);
+    echo json_encode([
+        'http_code' => 400,
+        'success'   => false,
+        'message'   => 'Only .csv files allowed. File can have any name but must have .csv extension',
+        'uploaded'  => $_FILES['csv_file']['name']
+    ]);
+    exit;
+}
+
+// File size max 5MB
+if ($_FILES['csv_file']['size'] > 5 * 1024 * 1024) {
+    http_response_code(400);
+    echo json_encode([
+        'http_code' => 400,
+        'success'   => false,
+        'message'   => 'File size must be less than 5MB',
+        'file_size' => round($_FILES['csv_file']['size'] / 1024 / 1024, 2) . 'MB'
+    ]);
+    exit;
+}
+
+$file = fopen($_FILES['csv_file']['tmp_name'], 'r');
+if (!$file) {
+    http_response_code(400);
+    echo json_encode(['http_code' => 400, 'success' => false, 'message' => 'Cannot open CSV file']);
+    exit;
+}
+
+// ============================================
+// VALIDATE HEADER ROW
+// ============================================
+$header           = fgetcsv($file);
+$header           = array_map('trim', array_map('strtolower', $header));
+$required_headers = ['extension', 'password', 'caller_id_name', 'has_ip_phone'];
+$missing_headers  = array_diff($required_headers, $header);
+$extra_headers    = array_diff($header, $required_headers);
+
+if (!empty($missing_headers)) {
+    fclose($file);
+    http_response_code(400);
+    echo json_encode([
+        'http_code'       => 400,
+        'success'         => false,
+        'message'         => 'Invalid CSV headers — missing required columns',
+        'missing_headers' => array_values($missing_headers),
+        'expected'        => $required_headers,
+        'got'             => $header
+    ]);
+    exit;
+}
+
+if (!empty($extra_headers)) {
+    fclose($file);
+    http_response_code(400);
+    echo json_encode([
+        'http_code'       => 400,
+        'success'         => false,
+        'message'         => 'CSV contains extra headers that are not allowed',
+        'extra_headers'   => array_values($extra_headers),
+        'allowed_headers' => $required_headers
+    ]);
+    exit;
+}
+
+// ============================================
+// VALIDATE ALL ROWS FIRST
+// ============================================
+$validation_errors = [];
+$rows              = [];
+$line_number       = 1;
+
+while (($data = fgetcsv($file)) !== false) {
+    $line_number++;
+
+    // Skip blank lines
+    if (empty(array_filter($data))) continue;
+
+    // Check column count
+    if (count($data) < 4) {
+        $validation_errors[] = "Line $line_number: Expected 4 columns, got " . count($data);
+        continue;
+    }
+
+    $extension      = trim($data[0] ?? '');
+    $password       = trim($data[1] ?? '');
+    $caller_id_name = trim($data[2] ?? '');
+    $ip_flag        = strtolower(trim($data[3] ?? ''));
+
+    // ── Extension ──
+    if (empty($extension)) {
+        $validation_errors[] = "Line $line_number: Extension is empty";
+        continue;
+    }
+    if (!preg_match('/^\d+$/', $extension)) {
+        $validation_errors[] = "Line $line_number: Extension '$extension' must be numeric only";
+        continue;
+    }
+    if (strlen($extension) > 12) {
+        $validation_errors[] = "Line $line_number: Extension '$extension' too long (max 12 digits)";
+        continue;
+    }
+
+    // ── Password ──
+    if (empty($password)) {
+        $validation_errors[] = "Line $line_number: Password is empty for extension $extension";
+        continue;
+    }
+    //if (strlen($password) < 4) {
+    //    $validation_errors[] = "Line $line_number: Password too short for extension $extension (min 4 chars)";
+     //   continue;
+    //}
+    //if (strlen($password) > 12) {
+    //    $validation_errors[] = "Line $line_number: Password too long for extension $extension (max 12 chars)";
+    //    continue;
+   // }
+
+    // ── caller_id_name ──
+    if (empty($caller_id_name)) {
+        $validation_errors[] = "Line $line_number: caller_id_name is empty for extension $extension";
+        continue;
+    }
+    if (strlen($caller_id_name) > 100) {
+        $validation_errors[] = "Line $line_number: caller_id_name too long for extension $extension (max 100 chars)";
+        continue;
+    }
+
+    // ── has_ip_phone ──
+    if (!in_array($ip_flag, ['true', 'false', '1', '0', 'yes', 'no'])) {
+        $validation_errors[] = "Line $line_number: has_ip_phone '$ip_flag' invalid for extension $extension. Use: true/false/1/0/yes/no";
+        continue;
+    }
+
+    // ── Duplicate in CSV ──
+    foreach ($rows as $existing_row) {
+        if ($existing_row['extension'] === $extension) {
+            $validation_errors[] = "Line $line_number: Duplicate extension $extension found in CSV";
+            continue 2;
+        }
+    }
+
+    // ── Duplicate in DB ──
+    $stmt = $conn->prepare("SELECT id FROM extensions WHERE extension = ?");
+    $stmt->bind_param("s", $extension);
+    $stmt->execute();
+    $stmt->store_result();
+    if ($stmt->num_rows > 0) {
+        $validation_errors[] = "Line $line_number: Extension $extension already exists in DB";
+        $stmt->close();
+        continue;
+    }
+    $stmt->close();
+
+    // All valid — add to rows
+    $rows[] = [
+        'extension'      => $extension,
+        'password'       => $password,
+        'caller_id_name' => $caller_id_name,
+        'has_ip_phone'   => in_array($ip_flag, ['true', '1', 'yes']) ? 1 : 0,
+        'line'           => $line_number
+    ];
+}
+
+fclose($file);
+
+// ============================================
+// STOP IF VALIDATION ERRORS
+// ============================================
+if (!empty($validation_errors)) {
+    http_response_code(400);
+    echo json_encode([
+        'http_code'         => 400,
+        'success'           => false,
+        'message'           => 'CSV validation failed. No records inserted.',
+        'total_errors'      => count($validation_errors),
+        'validation_errors' => $validation_errors
+    ]);
+    exit;
+}
+
+// No valid rows
+if (empty($rows)) {
+    http_response_code(400);
+    echo json_encode(['http_code' => 400, 'success' => false, 'message' => 'No valid rows found in CSV']);
+    exit;
+}
+
+// ============================================
+// ALL VALID — INSERT
+// ============================================
+$errors   = [];
+$inserted = 0;
+$fs_dir   = "/usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/";
+//$fs_dir = "/usr/local/freeswitch/conf/directory/default/";
+foreach ($rows as $row) {
+    $extension      = $row['extension'];
+    $password       = $row['password'];
+    $caller_id_name = $row['caller_id_name'];
+    $has_ip_phone   = $row['has_ip_phone'];
+    $fs_path        = $fs_dir . $extension . ".xml";
+
+    // Insert to DB
+    $stmt = $conn->prepare("INSERT INTO extensions (extension, password, name, has_ip_phone) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("sssi", $extension, $password, $caller_id_name, $has_ip_phone);
+
+    if (!$stmt->execute()) {
+        $errors[] = "DB insert failed for extension $extension: " . $stmt->error;
+        $stmt->close();
+        continue;
+    }
+    $stmt->close();
+
+    // Write XML
+    $xml_content = "<include>
+<user id=\"" . htmlspecialchars($extension, ENT_QUOTES) . "\">
+<params>
+<param name=\"password\" value=\"" . htmlspecialchars($password, ENT_QUOTES) . "\"/>
+<param name=\"vm-password\" value=\"" . htmlspecialchars($password, ENT_QUOTES) . "\"/>
+</params>
+<variables>
+<variable name=\"toll_allow\" value=\"domestic,international,local\"/>
+<variable name=\"accountcode\" value=\"" . htmlspecialchars($extension, ENT_QUOTES) . "\"/>
+<variable name=\"effective_caller_id_name\" value=\"" . htmlspecialchars($caller_id_name, ENT_QUOTES) . "\"/>
+<variable name=\"effective_caller_id_number\" value=\"" . htmlspecialchars($extension, ENT_QUOTES) . "\"/>
+<variable name=\"outbound_caller_id_name\" value=\"" . htmlspecialchars($caller_id_name, ENT_QUOTES) . "\"/>
+<variable name=\"outbound_caller_id_number\" value=\"" . htmlspecialchars($extension, ENT_QUOTES) . "\"/>
+<variable name=\"has_ip_phone\" value=\"" . htmlspecialchars($has_ip_phone, ENT_QUOTES) . "\"/>
+</variables>
+</user>
+</include>";
+
+    if (!is_dir($fs_dir)) mkdir($fs_dir, 0755, true);
+
+    if (file_put_contents($fs_path, $xml_content) === false) {
+        // Rollback DB
+        $rollback = $conn->prepare("DELETE FROM extensions WHERE extension = ?");
+        $rollback->bind_param("s", $extension);
+        $rollback->execute();
+        $rollback->close();
+        $errors[] = "XML write failed for extension $extension — DB rolled back";
+        continue;
+    }
+
+    $inserted++;
+}
+
+// ============================================
+// RELOAD FREESWITCH
+// ============================================
+
+$fs_reload = shell_exec("/bin/fs_cli_automax --port 8022 -x 'reloadxml' 2>&1");
+//$fs_reload = shell_exec("/usr/local/freeswitch/bin/fs_cli -x 'reloadxml' 2>&1");
+if (strpos($fs_reload, '+OK') === false) {
+    http_response_code(503);
+    echo json_encode([
+        'http_code'  => 503,
+        'success'    => false,
+        'message'    => "Extensions saved but FreeSWITCH reloadxml failed",
+        'inserted'   => $inserted,
+        'freeswitch' => trim($fs_reload)
+    ]);
+    exit;
+}
+
+// ============================================
+// FINAL RESPONSE
+// ============================================
+if ($inserted > 0 && empty($errors)) {
+    http_response_code(200);
+    $code = 200;
+} elseif ($inserted > 0 && !empty($errors)) {
+    http_response_code(207);
+    $code = 207;
+} else {
+    http_response_code(400);
+    $code = 400;
+}
+
+echo json_encode([
+    'http_code'  => $code,
+    'success'    => ($inserted > 0),
+    'inserted'   => $inserted,
+    'total_rows' => count($rows),
+    'errors'     => $errors,
+    'freeswitch' => trim($fs_reload)
+]);
+?>
+

@@ -1,0 +1,93 @@
+{
+    "Extensions": [
+        {
+            "ExtensionCode": "1112",
+            "IsAgent": false,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+	 {
+            "ExtensionCode": "4000",
+            "IsAgent": false,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+
+        {
+            "ExtensionCode": "1310",
+            "IsAgent": false,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "1320",
+            "IsAgent": false,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+         {
+            "ExtensionCode": "1330",
+            "IsAgent": false,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+ 	 },
+        {
+            "ExtensionCode": "1340",
+            "IsAgent": false,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "1350",
+            "IsAgent": false,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "1201",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+	 {
+            "ExtensionCode": "3000",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+	 {
+            "ExtensionCode": "3001",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "1202",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        }
+    ]
+}

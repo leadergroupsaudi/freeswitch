@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IVR: Main Office IVR | Ext: 20000 | Generated: 2026-05-19T07:12:57.016Z -->
+<extension name="IVR_20000">
+  <condition field="destination_number" expression="^20000$">
+    <action application="answer"/>
+    <action application="set" data="ivr_extension=20000"/>
+    <action application="lua" data="ivr_engine_20000.lua"/>
+  </condition>
+</extension>

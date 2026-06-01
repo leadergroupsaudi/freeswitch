@@ -1,0 +1,593 @@
+<?php
+ob_start();
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../lib/FreeSwitchESL.php';
+require_once __DIR__ . '/../../lib/SipProfileXML.php';
+require_once __DIR__ . '/../../lib/Auth.php';
+
+header('Content-Type: application/json');
+authenticateRequest();
+
+$method = $_SERVER['REQUEST_METHOD'];
+$uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// ── EXTRACT IDs + ACTION ───────────────────────────────────────────────────
+$profileId = null;
+$paramId   = null;
+$isRestart = false;
+$isStatus  = false;
+$isParams  = false;
+$isBulk    = false;
+
+if (preg_match('#/sip-profiles/(\d+)/params/bulk#', $uri, $m)) {
+    $profileId = (int)$m[1]; $isBulk   = true;
+} elseif (preg_match('#/sip-profiles/(\d+)/params/(\d+)#', $uri, $m)) {
+    $profileId = (int)$m[1]; $paramId  = (int)$m[2];
+} elseif (preg_match('#/sip-profiles/(\d+)/params#', $uri, $m)) {
+    $profileId = (int)$m[1]; $isParams = true;
+} elseif (preg_match('#/sip-profiles/(\d+)/restart#', $uri, $m)) {
+    $profileId = (int)$m[1]; $isRestart = true;
+} elseif (preg_match('#/sip-profiles/(\d+)/status#', $uri, $m)) {
+    $profileId = (int)$m[1]; $isStatus = true;
+} elseif (preg_match('#/sip-profiles/(\d+)#', $uri, $m)) {
+    $profileId = (int)$m[1];
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+
+function jsonBody() {
+    $data = json_decode(file_get_contents('php://input'), true);
+    return is_array($data) ? $data : array();
+}
+
+function sendError($code, $message, $details = null) {
+    ob_clean();
+    http_response_code($code);
+    $resp = array('success' => false, 'error' => $message);
+    if ($details) $resp['details'] = $details;
+    echo json_encode($resp);
+    ob_end_flush();
+    exit;
+}
+
+function sendSuccess($data = array(), $code = 200) {
+    ob_clean();
+    http_response_code($code);
+    echo json_encode(array_merge(array('success' => true), $data));
+    ob_end_flush();
+    exit;
+}
+
+function maskParam($param) {
+    if ($param['is_sensitive']) $param['param_value'] = '********';
+    $param['is_sensitive'] = (bool)$param['is_sensitive'];
+    $param['editable']     = (bool)$param['editable'];
+    return $param;
+}
+
+function groupParams($params) {
+    $grouped = array(
+        'network'      => array(),
+        'codecs'       => array(),
+        'dtmf'         => array(),
+        'registration' => array(),
+        'tls'          => array(),
+        'srtp'         => array(),
+        'session'      => array(),
+        'general'      => array(),
+    );
+    foreach ($params as $p) {
+        $cat = isset($grouped[$p['category']]) ? $p['category'] : 'general';
+        $grouped[$cat][] = maskParam($p);
+    }
+    foreach ($grouped as $k => $v) {
+        if (empty($v)) unset($grouped[$k]);
+    }
+    return $grouped;
+}
+
+function syncParamsFromXML($db, $profileId, $filename) {
+    $xmlRead = SipProfileXML::read($filename);
+    if (!$xmlRead['success']) return;
+    $xmlParams = $xmlRead['params'];
+    foreach ($xmlParams as $name => $value) {
+        $check = $db->prepare(
+            "SELECT id FROM sip_profile_params WHERE profile_id=? AND param_name=?"
+        );
+        $check->execute(array($profileId, $name));
+        if ($check->fetch()) {
+            $db->prepare("UPDATE sip_profile_params SET param_value=?
+                WHERE profile_id=? AND param_name=?")
+               ->execute(array($value, $profileId, $name));
+        }
+    }
+}
+
+// ── ATOMIC SAVE — DB + XML + ESL ──────────────────────────────────────────
+
+function profileAtomicSave($db, $profile, $operation, $dbWork) {
+    // STEP 1: DB
+    try {
+        $db->beginTransaction();
+        $result = $dbWork();
+        if (!$result['success']) { $db->rollBack(); return $result; }
+        $db->commit();
+        writeLog('INFO', "SIP-PROFILE DB {$operation} | profile:{$profile['name']}");
+    } catch (Exception $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        writeLog('ERROR', "SIP-PROFILE DB {$operation} failed: " . $e->getMessage());
+        return array('success' => false, 'error' => 'Database error: ' . $e->getMessage());
+    }
+
+    // STEP 2: Write XML
+    if (isset($result['updates']) && !empty($result['updates'])) {
+        $xmlResult = SipProfileXML::write($profile['filename'], $result['updates']);
+        if (!$xmlResult['success']) {
+            writeLog('ERROR', "SIP-PROFILE XML write failed: " . $xmlResult['error']);
+
+            // Rollback DB
+            try {
+                if ($operation === 'UPDATE_PARAM' && isset($result['snapshot'])) {
+                    $snap = $result['snapshot'];
+                    $db->prepare("UPDATE sip_profile_params SET param_value=? WHERE id=?")
+                       ->execute(array($snap['param_value'], $snap['id']));
+                    writeLog('INFO', "SIP-PROFILE DB rollback param ID:{$snap['id']}");
+                } elseif ($operation === 'BULK_UPDATE' && isset($result['snapshots'])) {
+                    $s = $db->prepare("UPDATE sip_profile_params SET param_value=? WHERE id=?");
+                    foreach ($result['snapshots'] as $snap)
+                        $s->execute(array($snap['param_value'], $snap['id']));
+                    writeLog('INFO', "SIP-PROFILE DB rollback bulk");
+                } elseif ($operation === 'CREATE_PARAM' && isset($result['id'])) {
+                    $db->prepare("DELETE FROM sip_profile_params WHERE id=?")
+                       ->execute(array($result['id']));
+                    writeLog('INFO', "SIP-PROFILE DB rollback new param ID:{$result['id']}");
+                }
+            } catch (Exception $re) {
+                writeLog('ERROR', "SIP-PROFILE DB rollback failed: " . $re->getMessage());
+            }
+
+            return array(
+                'success' => false,
+                'error'   => 'Failed to write profile XML',
+                'detail'  => $xmlResult['error'],
+            );
+        }
+        writeLog('INFO', "SIP-PROFILE XML write success | profile:{$profile['name']}");
+    }
+
+    // STEP 3: Restart profile
+    $reloadResult = SipProfileXML::reload($profile['name']);
+    if (!$reloadResult["success"]) {
+            // Warn only — DB+XML already saved
+            $reloadResult["warning"] = "Profile saved. Run: sofia profile " . $profile["name"] . " rescan";
+        writeLog('WARN', "SIP-PROFILE restart failed: " .
+            (isset($reloadResult['error']) ? $reloadResult['error'] : $reloadResult['response']));
+    } else {
+        writeLog('INFO', "SIP-PROFILE restarted: {$profile['name']}");
+    }
+
+    return array_merge(array('success' => true, 'reload' => $reloadResult), $result);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  ROUTING
+// ══════════════════════════════════════════════════════════════════════════
+
+try {
+    $db = getDB();
+
+    // ── GET /api/admin/sip-profiles ── list all profiles ───────────────────
+    if ($method === 'GET' && !$profileId) {
+        $profiles = $db->query("SELECT * FROM sip_profiles ORDER BY id ASC")->fetchAll();
+        foreach ($profiles as &$p) {
+            $cnt = $db->prepare("SELECT COUNT(*) FROM sip_profile_params WHERE profile_id=?");
+            $cnt->execute(array($p['id']));
+            $p['param_count'] = (int)$cnt->fetchColumn();
+            $p['enabled']     = (bool)$p['enabled'];
+            $p['is_custom']   = (bool)$p['is_custom'];
+        }
+        unset($p);
+        writeLog('INFO', "SIP-PROFILES GET ALL — " . count($profiles));
+        writeSeparator();
+        sendSuccess(array('data' => $profiles, 'total' => count($profiles)));
+    }
+
+    // ── GET /api/admin/sip-profiles/:id ── single profile with params ───────
+    if ($method === 'GET' && $profileId && !$isParams && !$isRestart && !$isStatus && !$paramId) {
+        $stmt = $db->prepare("SELECT * FROM sip_profiles WHERE id = ?");
+        $stmt->execute(array($profileId));
+        $profile = $stmt->fetch();
+        if (!$profile) sendError(404, 'SIP profile not found');
+
+        // Sync from XML
+        syncParamsFromXML($db, $profileId, $profile['filename']);
+
+        $params = $db->prepare(
+            "SELECT * FROM sip_profile_params WHERE profile_id=? ORDER BY category, id ASC"
+        );
+        $params->execute(array($profileId));
+        $rows = $params->fetchAll();
+
+        $profile['params']    = groupParams($rows);
+        $profile['enabled']   = (bool)$profile['enabled'];
+        $profile['is_custom'] = (bool)$profile['is_custom'];
+
+        writeLog('INFO', "SIP-PROFILE GET | ID:{$profileId} | name:'{$profile['name']}'");
+        writeSeparator();
+        sendSuccess(array('data' => $profile));
+    }
+
+    // ── GET /api/admin/sip-profiles/:id/status ── sofia status ─────────────
+    if ($method === 'GET' && $profileId && $isStatus) {
+        $stmt = $db->prepare("SELECT * FROM sip_profiles WHERE id = ?");
+        $stmt->execute(array($profileId));
+        $profile = $stmt->fetch();
+        if (!$profile) sendError(404, 'SIP profile not found');
+
+        $status = SipProfileXML::status($profile['name']);
+        writeLog('INFO', "SIP-PROFILE STATUS | name:'{$profile['name']}'"
+            . " | status:" . (isset($status['status']) ? $status['status'] : 'unknown'));
+        writeSeparator();
+        sendSuccess(array(
+            'profile_id'   => $profileId,
+            'profile_name' => $profile['name'],
+            'status'       => isset($status['status']) ? $status['status'] : 'unknown',
+            'running'      => isset($status['running']) ? $status['running'] : false,
+            'raw'          => isset($status['raw']) ? $status['raw'] : null,
+        ));
+    }
+
+    // ── POST /api/admin/sip-profiles/:id/restart ── restart profile ─────────
+    if ($method === 'POST' && $profileId && $isRestart) {
+        $stmt = $db->prepare("SELECT * FROM sip_profiles WHERE id = ?");
+        $stmt->execute(array($profileId));
+        $profile = $stmt->fetch();
+        if (!$profile) sendError(404, 'SIP profile not found');
+
+        $result = SipProfileXML::reload($profile['name']);
+        writeLog('INFO', "SIP-PROFILE RESTART | name:'{$profile['name']}'"
+            . " | success:" . ($result['success'] ? 'yes' : 'no'));
+        writeSeparator();
+        sendSuccess(array(
+            'profile_id'   => $profileId,
+            'profile_name' => $profile['name'],
+            'restart'      => $result,
+        ));
+    }
+
+    // ── POST /api/admin/sip-profiles ── create custom profile ───────────────
+    if ($method === 'POST' && !$profileId && !$isParams && !$isBulk) {
+        $body   = jsonBody();
+        $errors = array();
+
+        if (empty($body['name']))
+            $errors[] = "name is required";
+        if (!empty($body['name']) && !preg_match('/^[\w\-]+$/', $body['name']))
+            $errors[] = "name: only letters, numbers, hyphens, underscores";
+        if (!empty($errors)) sendError(422, 'Validation failed', $errors);
+
+        // Duplicate check
+        $dup = $db->prepare("SELECT COUNT(*) FROM sip_profiles WHERE name=?");
+        $dup->execute(array($body['name']));
+        if ((int)$dup->fetchColumn() > 0)
+            sendError(409, 'Duplicate entry',
+                array("Profile '{$body['name']}' already exists"));
+
+        $profileName = $body['name'];
+        $filename    = 'sip_profiles/' . $profileName . '.xml';
+        $description = isset($body['description']) ? $body['description'] : '';
+
+        // Build default params from body or defaults
+        $initialParams = isset($body['params']) ? $body['params'] : array(
+            'sip-ip'                  => '$${local_ip_v4}',
+            'sip-port'                => '5090',
+            'rtp-ip'                  => '$${local_ip_v4}',
+            'ext-rtp-ip'              => '$${external_rtp_ip}',
+            'ext-sip-ip'              => '$${external_sip_ip}',
+            'context'                 => 'public',
+            'dialplan'                => 'XML',
+            'inbound-codec-prefs'     => 'PCMU,PCMA',
+            'outbound-codec-prefs'    => 'PCMU,PCMA',
+            'rtp-secure-media'        => 'optional',
+            'auth-calls'              => 'false',
+            'tls'                     => 'false',
+        );
+
+        // Create XML file
+        $xmlResult = SipProfileXML::create($profileName, $initialParams);
+        if (!$xmlResult['success'])
+            sendError(500, 'Failed to create profile XML', array($xmlResult['error']));
+
+        // Save to DB
+        $newId = null;
+        try {
+            $db->beginTransaction();
+            $s = $db->prepare("INSERT INTO sip_profiles
+                (name, filename, description, is_custom) VALUES (:n,:f,:d,1)");
+            $s->execute(array(':n' => $profileName, ':f' => $filename, ':d' => $description));
+            $newId = (int)$db->lastInsertId();
+
+            // Insert default params
+            $sp = $db->prepare("INSERT INTO sip_profile_params
+                (profile_id, param_name, param_value, category) VALUES (?,?,?,'general')");
+            foreach ($initialParams as $pName => $pValue)
+                $sp->execute(array($newId, $pName, $pValue));
+
+            $db->commit();
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            @unlink(SipProfileXML::getProfilePath($filename));
+            sendError(500, 'Database error: ' . $e->getMessage());
+        }
+
+        // Reload sofia to pick up new profile
+        try {
+            $esl = new FreeSwitchESL();
+            if ($esl->connect()) {
+                $esl->sendCommand("api reloadxml");
+                $esl->sendCommand("api sofia profile {$profileName} start");
+                $esl->disconnect();
+            }
+        } catch (Exception $e) {
+            writeLog('WARN', "ESL start new profile failed: " . $e->getMessage());
+        }
+
+        writeLog('INFO', "SIP-PROFILE CREATED | ID:{$newId} | name:'{$profileName}'");
+        writeSeparator();
+        sendSuccess(array('id' => $newId, 'name' => $profileName, 'filename' => $filename), 201);
+    }
+
+    // ── GET /api/admin/sip-profiles/:id/params ── list params ───────────────
+    if ($method === 'GET' && $profileId && $isParams && !$paramId) {
+        $stmt = $db->prepare("SELECT * FROM sip_profiles WHERE id = ?");
+        $stmt->execute(array($profileId));
+        $profile = $stmt->fetch();
+        if (!$profile) sendError(404, 'SIP profile not found');
+
+        // Sync from XML first
+        syncParamsFromXML($db, $profileId, $profile['filename']);
+
+        // Optional category filter
+        $where  = "profile_id = ?";
+        $params = array($profileId);
+        if (!empty($_GET['category'])) {
+            $where   .= " AND category = ?";
+            $params[] = $_GET['category'];
+        }
+
+        $stmt2 = $db->prepare(
+            "SELECT * FROM sip_profile_params WHERE {$where} ORDER BY category, id ASC"
+        );
+        $stmt2->execute($params);
+        $rows = $stmt2->fetchAll();
+
+        writeLog('INFO', "SIP-PROFILE GET PARAMS | profile:{$profile['name']}"
+            . " | count:" . count($rows));
+        writeSeparator();
+        sendSuccess(array(
+            'profile_id'   => $profileId,
+            'profile_name' => $profile['name'],
+            'total'        => count($rows),
+            'grouped'      => groupParams($rows),
+        ));
+    }
+
+    // ── GET /api/admin/sip-profiles/:id/params/:paramId ── single param ─────
+    if ($method === 'GET' && $profileId && $paramId) {
+        $stmt = $db->prepare(
+            "SELECT * FROM sip_profile_params WHERE id=? AND profile_id=?"
+        );
+        $stmt->execute(array($paramId, $profileId));
+        $param = $stmt->fetch();
+        if (!$param) sendError(404, 'Parameter not found');
+        writeSeparator();
+        sendSuccess(array('data' => maskParam($param)));
+    }
+
+    // ── POST /api/admin/sip-profiles/:id/params ── add new param ────────────
+    if ($method === 'POST' && $profileId && $isParams && !$isBulk) {
+        $stmt = $db->prepare("SELECT * FROM sip_profiles WHERE id = ?");
+        $stmt->execute(array($profileId));
+        $profile = $stmt->fetch();
+        if (!$profile) sendError(404, 'SIP profile not found');
+
+        $body = jsonBody();
+        if (empty($body['param_name']))  sendError(422, 'Validation failed', array("param_name is required"));
+        if (!isset($body['param_value'])) sendError(422, 'Validation failed', array("param_value is required"));
+
+        // Duplicate check
+        $dup = $db->prepare(
+            "SELECT COUNT(*) FROM sip_profile_params WHERE profile_id=? AND param_name=?"
+        );
+        $dup->execute(array($profileId, $body['param_name']));
+        if ((int)$dup->fetchColumn() > 0)
+            sendError(409, 'Duplicate parameter',
+                array("Parameter '{$body['param_name']}' already exists in this profile"));
+
+        $newParamId = null;
+        $result = profileAtomicSave($db, $profile, 'CREATE_PARAM',
+            function() use ($db, $body, $profileId, &$newParamId) {
+                $s = $db->prepare("INSERT INTO sip_profile_params
+                    (profile_id,param_name,param_value,description,category,is_sensitive,editable,updated_by)
+                    VALUES (:pid,:name,:val,:desc,:cat,:sens,:edit,:by)");
+                $s->execute(array(
+                    ':pid'  => $profileId,
+                    ':name' => $body['param_name'],
+                    ':val'  => $body['param_value'],
+                    ':desc' => isset($body['description'])  ? $body['description']  : '',
+                    ':cat'  => isset($body['category'])     ? $body['category']     : 'general',
+                    ':sens' => isset($body['is_sensitive']) ? (int)$body['is_sensitive'] : 0,
+                    ':edit' => 1,
+                    ':by'   => isset($body['updated_by'])   ? $body['updated_by']   : 'admin',
+                ));
+                $newParamId = (int)$db->lastInsertId();
+                return array(
+                    'success' => true,
+                    'id'      => $newParamId,
+                    'updates' => array($body['param_name'] => $body['param_value']),
+                );
+            }
+        );
+
+        if (!$result['success']) sendError(500, $result['error']);
+        writeLog('INFO', "SIP-PROFILE PARAM ADDED | profile:{$profile['name']}"
+            . " | param:'{$body['param_name']}'");
+        writeSeparator();
+        sendSuccess(array('id' => $newParamId), 201);
+    }
+
+    // ── PUT /api/admin/sip-profiles/:id/params/:paramId ── update param ─────
+    if ($method === 'PUT' && $profileId && $paramId) {
+        $stmt = $db->prepare("SELECT * FROM sip_profiles WHERE id = ?");
+        $stmt->execute(array($profileId));
+        $profile = $stmt->fetch();
+        if (!$profile) sendError(404, 'SIP profile not found');
+
+        $pStmt = $db->prepare(
+            "SELECT * FROM sip_profile_params WHERE id=? AND profile_id=?"
+        );
+        $pStmt->execute(array($paramId, $profileId));
+        $existing = $pStmt->fetch();
+        if (!$existing) sendError(404, 'Parameter not found');
+
+        if (!$existing['editable'])
+            sendError(403, 'Parameter is read-only');
+
+        $body = jsonBody();
+        if (!isset($body['param_value']))
+            sendError(422, 'Validation failed', array("param_value is required"));
+
+        $newValue  = $body['param_value'];
+        $newDesc   = isset($body['description']) ? $body['description'] : $existing['description'];
+        $newCat    = isset($body['category'])    ? $body['category']    : $existing['category'];
+        $updatedBy = isset($body['updated_by'])  ? $body['updated_by']  : 'admin';
+
+        $result = profileAtomicSave($db, $profile, 'UPDATE_PARAM',
+            function() use ($db, $paramId, $newValue, $newDesc, $newCat, $updatedBy, $existing) {
+                $db->prepare("UPDATE sip_profile_params SET
+                    param_value=:val, description=:desc, category=:cat, updated_by=:by
+                    WHERE id=:id")
+                   ->execute(array(
+                       ':val'  => $newValue,
+                       ':desc' => $newDesc,
+                       ':cat'  => $newCat,
+                       ':by'   => $updatedBy,
+                       ':id'   => $paramId,
+                   ));
+                return array(
+                    'success'  => true,
+                    'snapshot' => $existing,
+                    'updates'  => array($existing['param_name'] => $newValue),
+                );
+            }
+        );
+
+        if (!$result['success']) sendError(500, $result['error']);
+
+        $display = $existing['is_sensitive'] ? '********' : $newValue;
+        writeLog('INFO', "SIP-PROFILE PARAM UPDATED | profile:{$profile['name']}"
+            . " | param:'{$existing['param_name']}' | value:'{$display}'");
+        writeSeparator();
+        sendSuccess(array(
+            'param_id'  => $paramId,
+            'param_name'=> $existing['param_name'],
+            'reload'    => isset($result['reload']) ? $result['reload'] : null,
+        ));
+    }
+
+    // ── POST /api/admin/sip-profiles/:id/params/bulk ── bulk update ──────────
+    if ($method === 'POST' && $profileId && $isBulk) {
+        $stmt = $db->prepare("SELECT * FROM sip_profiles WHERE id = ?");
+        $stmt->execute(array($profileId));
+        $profile = $stmt->fetch();
+        if (!$profile) sendError(404, 'SIP profile not found');
+
+        $body = jsonBody();
+        if (empty($body['params']) || !is_array($body['params']))
+            sendError(422, 'Validation failed', array("params array is required"));
+
+        $updatedBy = isset($body['updated_by']) ? $body['updated_by'] : 'admin';
+        $errors    = array();
+        $toUpdate  = array(); // param_name => new_value
+        $dbUpdates = array(); // paramId => info
+        $snapshots = array();
+
+        foreach ($body['params'] as $i => $item) {
+            if (empty($item['param_name'])) {
+                $errors[] = "params[{$i}]: param_name is required"; continue;
+            }
+            if (!isset($item['param_value'])) {
+                $errors[] = "params[{$i}]: param_value is required"; continue;
+            }
+
+            // Find by param_name in this profile
+            $pCheck = $db->prepare(
+                "SELECT * FROM sip_profile_params WHERE profile_id=? AND param_name=?"
+            );
+            $pCheck->execute(array($profileId, $item['param_name']));
+            $existing = $pCheck->fetch();
+
+            if (!$existing) {
+                $errors[] = "params[{$i}]: '{$item['param_name']}' not found in profile — use POST to add new params";
+                continue;
+            }
+            if (!$existing['editable']) {
+                $errors[] = "params[{$i}]: '{$item['param_name']}' is read-only"; continue;
+            }
+
+            $toUpdate[$item['param_name']]    = $item['param_value'];
+            $dbUpdates[$existing['id']]       = array(
+                'name'      => $item['param_name'],
+                'new'       => $item['param_value'],
+                'sensitive' => $existing['is_sensitive'],
+            );
+            $snapshots[] = $existing;
+        }
+
+        if (!empty($errors)) sendError(422, 'Validation failed', $errors);
+        if (empty($toUpdate)) sendError(422, 'No valid updates provided');
+
+        $result = profileAtomicSave($db, $profile, 'BULK_UPDATE',
+            function() use ($db, $dbUpdates, $updatedBy, $snapshots, $toUpdate) {
+                $s = $db->prepare(
+                    "UPDATE sip_profile_params SET param_value=:val, updated_by=:by WHERE id=:id"
+                );
+                foreach ($dbUpdates as $id => $info)
+                    $s->execute(array(':val' => $info['new'], ':by' => $updatedBy, ':id' => $id));
+                return array(
+                    'success'   => true,
+                    'updates'   => $toUpdate,
+                    'snapshots' => $snapshots,
+                );
+            }
+        );
+
+        if (!$result['success']) sendError(500, $result['error']);
+
+        $summary = array();
+        foreach ($dbUpdates as $id => $info) {
+            $summary[] = array(
+                'param_name' => $info['name'],
+                'new_value'  => $info['sensitive'] ? '********' : $info['new'],
+            );
+        }
+
+        writeLog('INFO', "SIP-PROFILE BULK UPDATE | profile:{$profile['name']}"
+            . " | count:" . count($dbUpdates));
+        writeSeparator();
+        sendSuccess(array(
+            'profile_name'  => $profile['name'],
+            'updated_count' => count($dbUpdates),
+            'summary'       => $summary,
+            'reload'        => isset($result['reload']) ? $result['reload'] : null,
+        ));
+    }
+
+    sendError(405, 'Method Not Allowed');
+
+} catch (Exception $e) {
+    writeLog('ERROR', "SIP-PROFILE Exception: " . $e->getMessage()
+        . " | file:" . $e->getFile() . " | line:" . $e->getLine());
+    writeSeparator();
+    sendError(500, $e->getMessage());
+}

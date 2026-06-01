@@ -1,0 +1,27 @@
+{
+  "extension": "22000",
+  "ivrName": "Test IVR",
+  "entry": "main_menu",
+  "nodes": {
+    "main_menu": {
+      "type": "menu",
+      "audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/menu.wav",
+      "invalid_audio": "/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/custom/invalid.wav",
+      "digits": "1 1 3 5000",
+      "valid_digits": "(^1$|^2$)",
+      "max_retries": 3,
+      "next": {
+        "1": "sales",
+        "2": "hangup_node"
+      }
+    },
+    "sales": {
+      "type": "transfer",
+      "destination": "1001",
+      "context": "default"
+    },
+    "hangup_node": {
+      "type": "hangup"
+    }
+  }
+}

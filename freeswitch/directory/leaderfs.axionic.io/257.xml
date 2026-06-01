@@ -1,0 +1,17 @@
+<include>
+<user id="257">
+<params>
+<param name="password" value="DAR$@06"/>
+<param name="vm-password" value="DAR$@06"/>
+</params>
+<variables>
+<variable name="toll_allow" value="domestic,international,local"/>
+<variable name="accountcode" value="257"/>
+<variable name="effective_caller_id_name" value="anishya_leadergroup"/>
+<variable name="effective_caller_id_number" value="257"/>
+<variable name="outbound_caller_id_name" value="anishya_leadergroup"/>
+<variable name="outbound_caller_id_number" value="257"/>
+<variable name="has_ip_phone" value="1"/>
+</variables>
+</user>
+</include>

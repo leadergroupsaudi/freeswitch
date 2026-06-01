@@ -1,0 +1,11 @@
+#RewriteEngine On
+
+#RewriteRule ^api/admin/dialplan/internal$       dialplan-api/api/dialplan/internal.php [L,QSA]
+#RewriteRule ^api/admin/dialplan/public/reorder$ dialplan-api/api/dialplan/public.php   [L,QSA]
+#RewriteRule ^api/admin/dialplan/public/?(.*)$   dialplan-api/api/dialplan/public.php   [L,QSA]
+
+# ACL rules - no leading slash (per-dir context strips the slash)
+
+#RewriteRule ^api/acl/.*\.php$  - [L]
+#RewriteRule ^api/gateway/.*\.php$  - [L]
+#RewriteRule ^api/fs-vars/.*\.php$  - [L]

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<include>
+  <gateway name="voda">
+    <param name="username"           value="jiosiddp"/>
+    <param name="password"           value="novazuddqo@!@#"/>
+    <param name="realm"              value="zuqo"/>
+    <param name="proxy"              value="14.195.93.110:5062"/>
+    <param name="register-proxy"     value="14.195.93.110:5062"/>
+    <param name="apply-inbound-acl"  value="carrier"/>
+    <param name="from-user"          value="jioddsip"/>
+    <param name="from-domain"        value="zuqo"/>
+    <param name="register"           value="true"/>
+    <param name="register-transport" value="udp"/>
+    <param name="expire-seconds"     value="3600"/>
+    <param name="retry-seconds"      value="10"/>
+    <param name="caller-id-in-from"  value="true"/>
+    <param name="ping"               value="30"/>
+    <param name="outbound-caller-id-name"   value="jiosip"/>
+    <param name="outbound-caller-id-number" value="09120234567"/>
+    <param name="codec-prefs"        value="PCMA,PCMU,OPUS"/>
+  </gateway>
+</include>

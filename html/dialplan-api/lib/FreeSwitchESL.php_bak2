@@ -1,0 +1,106 @@
+<?php
+class FreeSwitchESL {
+    private $socket;
+    private $host;
+    private $port;
+    private $password;
+    private $timeout;
+
+    public function __construct($host = '127.0.0.1', $port = 8022, $password = 'ClueCon', $timeout = 10) {
+        $this->host     = $host;
+        $this->port     = $port;
+        $this->password = $password;
+        $this->timeout  = $timeout;
+    }
+
+    public function connect() {
+        $this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout);
+        if (!$this->socket) return false;
+
+        stream_set_timeout($this->socket, $this->timeout);
+
+        // Read the auth/request banner
+        $packet = $this->readPacket();
+        if (strpos($packet['headers'], 'auth/request') === false) return false;
+
+        // Send credentials
+        fwrite($this->socket, "auth {$this->password}\n\n");
+
+        // Read auth reply
+        $reply = $this->readPacket();
+        return strpos($reply['body'], '+OK accepted') !== false ||
+               strpos($reply['headers'], '+OK accepted') !== false;
+    }
+
+    /**
+     * Send a raw ESL command and return just the response BODY string.
+     * For   "api sofia profile X restart"   the body will be "+OK ..." or "-ERR ..."
+     */
+    public function sendCommand($cmd) {
+        if (!$this->socket) return '';
+        fwrite($this->socket, trim($cmd) . "\n\n");
+        $packet = $this->readPacket();
+        // Return body if present, otherwise full raw string so callers always get something
+        return $packet['body'] !== '' ? $packet['body'] : $packet['headers'];
+    }
+
+    public function reloadDialplan() {
+        return strpos($this->sendCommand("api reloadxml"), '+OK') !== false;
+    }
+
+    public function reloadACL() {
+        return strpos($this->sendCommand("api reloadacl"), '+OK') !== false;
+    }
+
+    public function disconnect() {
+        if ($this->socket) {
+            @fwrite($this->socket, "exit\n\n");
+            @fclose($this->socket);
+            $this->socket = null;
+        }
+    }
+
+    /**
+     * Read one complete ESL packet.
+     * Returns ['headers' => string, 'body' => string, 'raw' => string]
+     *
+     * ESL wire format:
+     *   Header: value\n
+     *   Header: value\n
+     *   \n                        <-- blank line ends headers
+     *   <exactly Content-Length bytes of body>
+     */
+    private function readPacket() {
+        $headers = '';
+        $body    = '';
+
+        // --- read headers line by line until blank line ---
+        while (!feof($this->socket)) {
+            $meta = stream_get_meta_data($this->socket);
+            if ($meta['timed_out']) break;
+
+            $line = fgets($this->socket, 4096);
+            if ($line === false) break;
+            if (rtrim($line, "\r\n") === '') break;   // blank line = end of headers
+            $headers .= $line;
+        }
+
+        // --- read body if Content-Length declared ---
+        if (preg_match('/^Content-Length:\s*(\d+)/im', $headers, $m)) {
+            $need = (int)$m[1];
+            while (strlen($body) < $need && !feof($this->socket)) {
+                $meta = stream_get_meta_data($this->socket);
+                if ($meta['timed_out']) break;
+                $chunk = fread($this->socket, $need - strlen($body));
+                if ($chunk === false || $chunk === '') break;
+                $body .= $chunk;
+            }
+        }
+
+        return [
+            'headers' => $headers,
+            'body'    => $body,
+            'raw'     => $headers . "\n" . $body,
+        ];
+    }
+}

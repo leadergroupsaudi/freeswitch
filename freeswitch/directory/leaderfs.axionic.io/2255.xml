@@ -1,0 +1,17 @@
+<include>
+<user id="2255">
+<params>
+<param name="password" value="pass1001"/>
+<param name="vm-password" value="pass1001"/>
+</params>
+<variables>
+<variable name="toll_allow" value="domestic,international,local"/>
+<variable name="accountcode" value="2255"/>
+<variable name="effective_caller_id_name" value="Sanaltest"/>
+<variable name="effective_caller_id_number" value="2255"/>
+<variable name="outbound_caller_id_name" value="Sanaltest"/>
+<variable name="outbound_caller_id_number" value="2255"/>
+<variable name="has_ip_phone" value="1"/>
+</variables>
+</user>
+</include>

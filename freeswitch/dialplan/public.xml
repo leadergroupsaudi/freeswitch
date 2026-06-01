@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    NOTICE:
+
+    This context is usually accessed via authenticated callers on the sip profile on port 5060
+    or transfered callers from the public context which arrived via the sip profile on port 5080.
+
+    Authenticated users will use the user_context variable on the user to determine what context
+    they can access.  You can also add a user in the directory with the cidr= attribute acl.conf.xml
+    will build the domains ACL using this value.
+-->
+<!-- http://wiki.freeswitch.org/wiki/Dialplan_XML -->
+<include>
+<context name="public">
+ <X-PRE-PROCESS cmd="include" data="ivr_extensions/*.xml"/>
+<extension name="call to 102">
+ <condition field="destination_number" expression="^(3001|3000|9036714088|550)$"> 
+<!-- <action application="set" data="absolute_codec_string=PCMU,PCMA,G722"/> --> 
+<action application="set" data="ringback=%(2000,4000,440.0,480.0)"/> 
+<action application="bridge" data="user/276@leaderfs.axionic.io"/> 
+<!-- <action application="hangup"/> --> 
+</condition> 
+</extension>
+
+	<extension name="codec_info" continue="true">
+        <condition field="${ep_codec_string}" expression="VP8|H264">
+                <action application="set" data="isvideocall=true" inline="true"/>
+                <anti-action application="set" data="isvideocall=false" inline="true"/>
+        </condition>
+</extension>
+
+    <extension name="IVR_CC_5501">
+        <!--<condition field="destination_number" expression="^(10[0-9][0-9])$">-->
+        <condition field="destination_number" expression="(^5501$)">
+                <action application="ring_ready" />
+                <action application="set" data="playback_terminators=#"/>
+        <action application="lua" data="ivr_main.lua"/>
+   </condition>
+   </extension>
+
+    <extension name="IVR_Agent_postgres">
+        <!--<condition field="destination_number" expression="^(10[0-9][0-9])$">-->
+        <condition field="destination_number" expression="(^9999$)">
+                <action application="ring_ready" />
+                <action application="set" data="playback_terminators=#"/>
+        <action application="lua" data="IVR_POstgres.lua"/>
+   </condition>
+   </extension>
+
+
+    <extension name="IVR_CCM_QA">
+        <condition field="destination_number" expression="(^2500$|^2501$)">
+		<action application="ring_ready" />
+	 	<action application="sleep" data="500"/>
+                <action application="set" data="playback_terminators=#"/>
+        <action application="lua" data="working_tts_ivr.lua"/>
+   </condition>
+   </extension>
+
+    
+    <extension name="IVR_CCM_AGENT">
+        <condition field="destination_number" expression="(^2900$)">
+                <action application="ring_ready" />
+                <action application="sleep" data="500"/>
+                <action application="set" data="playback_terminators=#"/>
+        <action application="lua" data="ivr_Agent.lua"/>
+   </condition>
+   </extension> <extension name="IVR_CCM_KFF">
+        <condition field="destination_number" expression="(^2990$)">
+                <action application="ring_ready" />
+		<action application="sleep" data="500"/>
+		<action application="set" data="callLogid=${sip_h_X-callLogid}"/>
+                <action application="export" data="callLogid=${callLogid}"/>
+                <action application="set" data="playback_terminators=#"/>
+        <action application="lua" data="ivr_KFF.lua"/>
+   </condition>
+   </extension>
+
+    <extension name="IVR_CCM_TTS">
+	    <condition field="destination_number" expression="(^2600$)">
+		<action application="ring_ready" />
+	 	<action application="sleep" data="500"/>
+                <action application="set" data="playback_terminators=#"/>
+		<action application="lua" data="ivr_main.lua"/>
+		<!--<action application="lua" data="ivr_Agent.lua"/>-->
+   </condition>
+   </extension>
+
+    <extension name="IVR_CCM_TTS">
+        <condition field="destination_number" expression="(^2700$)">
+                <action application="ring_ready" />
+                <action application="sleep" data="500"/>
+                <action application="set" data="playback_terminators=#"/>
+		<!--	<action application="lua" data="test-broadcast.lua"/> -->
+		 <action application="lua" data="tts_ivr.lua"/> 
+   </condition>
+   </extension>
+
+    <extension name="IVR_EPM">
+        <!--<condition field="destination_number" expression="^(10[0-9][0-9])$">-->
+        <condition field="destination_number" expression="(^7500$)">
+                <action application="ring_ready" />
+                <action application="sleep" data="1000"/>
+                <action application="set" data="playback_terminators=#"/>
+                <action application="answer" />
+		<!--<action application="playback" data="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/en/us/callie/ivr/8000/ivr-to_wait_stay_on_the_line.wav"/>-->
+		<action application="playback" data="shout:/tmp/tts_test.mp3@@16000"/>
+		<!--  <action application="lua" data="api_construct.lua"/>-->
+   </condition>
+   </extension>
+
+  <extension name="callCenter route">
+    <condition field="destination_number" expression="^OPCODE_101$">
+        <action application="log" data="SENDING IVR call to call center"/>
+	<action application="set" data="hangup_after_bridge=false"/>
+	<action application="set" data="sip_h_X-CallLogId=${sip_h_X-CallLogId}" inline="true"/>
+	<action application="set" data="absolute_codec_string=PCMA,PCMU"/>
+	<action application="set" data="leg_timeout=20"/>
+	<action application="set" data="cc_export_vars=sip_h_X-CallLogId,leg_timeout,absolute_codec_string"/>
+	<!--<action application="set" data="cc_export_vars=sip_h_X-CallLogId"/>-->
+        <action application="callcenter" data="ccm-ivr@default"/>
+	<action application="log" data="Agent Call is terminated"/>
+	 <action application="stop_record_session" data="all"/>
+        <action application="lua" data="ivr_main.lua"/>
+    </condition>
+  </extension>
+
+
+    <extension name="callCenter route">
+    <condition field="destination_number" expression="^direct_agent$">
+        <action application="log" data="SENDING IVR call to call center"/>
+        <action application="set" data="hangup_after_bridge=false"/>
+        <action application="set" data="sip_h_X-CallLogId=${sip_h_X-CallLogId}" inline="true"/>
+        <action application="set" data="absolute_codec_string=PCMA,PCMU"/>
+        <action application="set" data="leg_timeout=20"/>
+        <action application="set" data="cc_export_vars=sip_h_X-CallLogId,leg_timeout,absolute_codec_string"/>
+        <!--<action application="set" data="cc_export_vars=sip_h_X-CallLogId"/>-->
+        <action application="callcenter" data="ccm-ivr@default"/>
+        <action application="log" data="Agent Call is terminated"/>
+         <action application="stop_record_session" data="all"/>
+        <action application="lua" data="ivr_main.lua"/>
+    </condition>
+  </extension>
+
+   <extension name="callCenter route-KFF">
+    <condition field="destination_number" expression="^OPCODE_101_KFF$">
+        <action application="log" data="SENDING IVR call to call center"/>
+        <action application="set" data="hangup_after_bridge=false"/>
+	<action application="set" data="sip_h_X-CallLogId=${sip_h_X-CallLogId}" inline="true"/> 
+        <action application="set" data="absolute_codec_string=PCMA,PCMU"/>
+        <action application="set" data="leg_timeout=10"/>
+	<action application="set" data="cc_export_vars=sip_h_X-CallLogId,leg_timeout,absolute_codec_string"/>	
+        <action application="callcenter" data="ccm-ivr@default"/>
+	<action application="log" data="Agent Call is terminated"/>
+	<action application="log" data="Agent Call ended. Transferring to extension 1320"/>
+	<!--	<action application="transfer" data="1320 XML default"/>-->
+	<!--<action application="lua" data="ivr_KFF.lua"/>-->
+	<action application="set" data="cc_export_vars=sip_h_X-CallLogId,leg_timeout,absolute_codec_string"/>
+        <action application="transfer" data="1320 XML public"/>
+        <action application="lua" data="ivr_KFF.lua"/>
+
+    </condition>
+  </extension>
+
+<extension name="STC-Leader-IVR">
+<condition field="destination_number" expression="^\+(96611211460[0-9])$" break="on-false"/>
+<!-- Mon-Fri, 9am-5pm -->
+<condition wday="1-7" time-of-day="00:00-23:59" break="on-true">
+  <!-- limit 3 calls to this destination number per 1 second, otherwise give congestion message -->
+  <!-- <action application="limit" data="hash inbound ${destination_number} 10/1 !NORMAL_CIRCUIT_CONGESTION"/> -->
+  <!-- play a message before entering the queue. -->
+  <!-- hangup after successful bridge to agent -->
+        <action application="set" data="fail_on_single_reject=true"/>
+        <action application="set" data="continue_on_fail=true"/>
+  <action application="set" data="hangup_after_bridge=true"/>
+       <action application="export" data="disable_q850_reason=true"/>
+  <action application="lua" data="ivr_main.lua"/>
+  <!-- queue caller -->
+  <!-- if no agent was reached and using max-wait-time - send to general voicemail -->
+</condition>
+<condition>
+        <!--<action application="limit" data="hash inbound ${destination_number} 10/1 !NORMAL_CIRCUIT_CONGESTION"/> -->
+  <!-- outside business hours - play message and send to general voicemail -->
+  <action application="playback" data="/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/LeaderOutofOffice.wav"/>
+  <action application="hangup"/>
+</condition>
+
+</extension>
+
+
+
+
+<extension name="tts-test">
+    <condition field="destination_number" expression="^(55555)$">
+	    <action application="answer"/>
+	            <action application="set" data="tts_engine=flite"/>
+        <action application="set" data="tts_voice=kal"/>
+	<!--<action application="speak" data="Thank you for creating the ticket, the ticket number is IN459876543210 and will be addressed before 29-12-2023"/> -->
+	<action application="speak" data="شكرًا لك على إنشاء التذكرة، رقم التذكرة هو Hello leader IT team IN459876543210 وسيتم معالجتها قبل 29-12-2023"/> 
+        <action application="sleep" data="1000"/>
+        <action application="hangup"/>
+    </condition>
+</extension>
+
+
+    <extension name="Azure TTS Test">
+            <condition field="destination_number" expression="^50002">
+                    <action application="answer"/>
+                    <action application="set" data="tts_engine=azure_tts"/>
+		    <!-- <action application="set" data="tts_voice=en-US-Benjamin"/>-->
+		    <action application ="set" data="tts_voice=ar-SA-ZariyahNeural"/>
+		    <!--<action application="speak" data="{AZURE_SUBSCRIPTION_KEY=1cfc10bab7f54e53bb5fad1b6d6dfee4,AZURE_REGION=uksouth,speed=0}"Thank you for creating the ticket, the ticket number is IN459876543210 and will be addressed before 29-Dec-2023.""/>-->
+                        
+		    <action application="speak" data="{AZURE_SUBSCRIPTION_KEY=1cfc10bab7f54e53bb5fad1b6d6dfee4,AZURE_REGION=uksouth,speed=0}0567894325"/>
+	    </condition>
+    </extension>
+
+    <extension name="speak-arabic-ssml">
+    <condition field="destination_number" expression="^9009$">
+        <!-- Set the Azure TTS parameters -->
+        <action application="set" data="tts_engine=azure_tts"/>
+        <action application="set" data="tts_voice=ar-SA-ZariyahNeural"/>
+
+        <!-- Speak the text using SSML -->
+        <action application="speak" data="{AZURE_SUBSCRIPTION_KEY=1cfc10bab7f54e53bb5fad1b6d6dfee4,AZURE_REGION=uksouth,speed=0}<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis'><voice name='ar-SA-ZariyahNeural'>مرحبا</voice></speak>"/>
+
+        <!-- Hang up after speaking -->
+        <action application="hangup"/>
+    </condition>
+</extension>
+
+<extension name="test-basic-tts">
+    <condition field="destination_number" expression="^1234567890$">
+        <action application="set" data="tts_engine=azure_tts"/>
+        <action application="set" data="tts_voice=ar-SA-ZariyahNeural"/>
+        <action application="speak" data="{AZURE_SUBSCRIPTION_KEY=1cfc10bab7f54e53bb5fad1b6d6dfee4,AZURE_REGION=uksouth,speed=0}مرحبا"/>
+        <action application="hangup"/>
+    </condition>
+</extension>
+
+
+
+    <extension name="Local_Extension">
+	<!--<condition field="destination_number" expression="^(10[0-9][0-9])$">-->
+	<condition field="destination_number" expression="(^1\d{3}$|^1\d{2}$|^2\d{3}$|^3\d{3}$|^4\d{3}$)">
+	<action application="export" data="dialed_extension=$1"/>
+		<!--<action application="lua" data="fire_push_notify.lua"/>--> 
+	<!--<action application="sleep" data="10000"/>-->
+	<!--<action application="export" data="nolocal:execute_on_ring=lua fire_push_notify.lua"/>-->
+	<!-- bind_meta_app can have these args <key> [a|b|ab] [a|b|o|s] <app> -->
+	<action application="bind_meta_app" data="1 b s execute_extension::dx XML features"/>
+	<action application="bind_meta_app" data="2 b s record_session::$${recordings_dir}/${caller_id_number}.${strftime(%Y-%m-%d-%H-%M-%S)}.wav"/>
+	<action application="bind_meta_app" data="3 b s execute_extension::cf XML features"/>
+	<action application="bind_meta_app" data="4 b s execute_extension::att_xfer XML features"/>
+	<action application="set" data="ringback=${us-ring}"/>
+		<!--<action application="set" data="transfer_ringback=$${hold_music}"/>-->
+	<action application="set" data="call_timeout=100"/>
+	<!-- <action application="set" data="sip_exclude_contact=${network_addr}"/> -->
+	<action application="set" data="hangup_after_bridge=true"/>
+	<!--<action application="set" data="continue_on_fail=NORMAL_TEMPORARY_FAILURE,USER_BUSY,NO_ANSWER,TIMEOUT,NO_ROUTE_DESTINATION"/> -->
+	<action application="hash" data="insert/${domain_name}-call_return/${dialed_extension}/${caller_id_number}"/>
+	<action application="hash" data="insert/${domain_name}-last_dial_ext/${dialed_extension}/${uuid}"/>
+	<action application="set" data="called_party_callgroup=${user_data(${dialed_extension}@${domain_name} var callgroup)}"/>
+	<action application="hash" data="insert/${domain_name}-last_dial_ext/${called_party_callgroup}/${uuid}"/>
+	<action application="hash" data="insert/${domain_name}-last_dial_ext/global/${uuid}"/>
+	<!--<action application="export" data="nolocal:rtp_secure_media=${user_data(${dialed_extension}@${domain_name} var rtp_secure_media)}"/>-->
+	<action application="hash" data="insert/${domain_name}-last_dial/${called_party_callgroup}/${uuid}"/>
+	<action application="export" data="originate_leg_uuid=${uuid}"/>
+	<action application="set" data="fail_on_single_reject=true"/>
+	<action application="set" data="continue_on_fail=true"/>
+        <action application="log" data="Extra Headers X-CallLogID [${sip_h_X-CallLogId}]"/>
+        <action application="export" data="nolocal:sip_h_X-CallLogId=${sip_h_X-CallLogId}"/>
+        <action application="set" data="sip_h_X-CallLogId=${sip_h_X-CallLogId}" inline="true"/>
+        <action application="log" data="Caller Codec  [${ep_codec_string}]"/>
+        <action application="export" data="nolocal:codec_string=${ep_codec_string}"/>
+        <action application="execute_extension" data="SETUP_RECORDING XML public"/>
+        <action application="set" data="bridge_pre_execute_bleg_app=execute_extension"/>
+        <action application="set" data="bridge_pre_execute_bleg_data=SETUP_RECORDING XML public"/>
+	<action application="bridge" data="user/${dialed_extension}@${domain_name}"/>
+        <action application="answer"/>
+	<action application="voicemail" data="default ${domain_name} ${dialed_extension}"/>
+      </condition>
+    </extension>
+
+    <extension name="setup bind_digit_action_recording">
+     <condition field="destination_number" expression="^SETUP_RECORDING$">
+	     <action application="log" data="INFO Configuring bind_digit_action to do recording on this session..."/>
+	     <action application="log" data="X-CallLogId: ${sip_h_X-CallLogId}"/>
+       <action application="bind_digit_action" data="start_recording,*31,exec:execute_extension,START_RECORDING XML public"/>
+       <action application="bind_digit_action" data="stop_recording,*32,exec:execute_extension,STOP_RECORDING XML public"/>
+       <action application="digit_action_set_realm" data="start_recording"/>
+    </condition>
+    </extension>
+
+    <extension name="bind_digit_action Start Recording">
+     <condition field="destination_number" expression="^START_RECORDING$">
+       <action application="log" data="INFO Starting recording..."/>
+       <action application="lua" data="codec_validate.lua"/>
+       <!--<action application="set" data="RECORD_APPEND=true"/>-->
+       <action application="set" data="record_concat_video=true"/>
+       <action application="export" data="RECORD_STEREO=true"/>
+       <action application="export" data="RECORD_TOGGLE_ON_REPEAT=true"/>
+       <action application="set" data="record_start_time=${strftime(%Y-%m-%d %H:%M:%S)}" inline="true"/>
+       <action application="export" data="nolocal:record_start_time=${strftime(%Y-%m-%d %H:%M:%S)}"/>
+       <action application="log" data="Call AV format details [${avformat}]"/>
+       <action
+         application="set"
+         inline="true"
+                data="rec_file=$${base_dir}/recordings/call_recordings/${uuid}_${caller_id_number}_${dialed_user}_${sip_h_X-CallLogId}"
+       />
+       <action application="record_session" data="${rec_file}.${avformat}"/>
+       <action application="digit_action_set_realm" data="stop_recording"/>
+     </condition>
+    </extension>
+
+    <extension name="bind_digit_action Stop Recording">
+      <condition field="destination_number" expression="^STOP_RECORDING$">
+        <action application="log" data="INFO Stop recording [${rec_file}]"/>
+        <action application="stop_record_session" data="${rec_file}.${avformat}"/>
+        <action application="digit_action_set_realm" data="start_recording"/>
+      </condition>
+    </extension>
+
+   <extension name="speak-specific-mobile-number">
+    <condition field="destination_number" expression="^6066$">
+        <!-- Set the mobile number variable directly with quotes -->
+        <action application="set" data="mobile_number='9489042127'"/>
+
+        <!-- Set the TTS parameters -->
+        <action application="set" data="tts_engine=azure"/>
+        <action application="set" data="tts_voice=ar-SA-SalmaNeural"/>
+
+        <!-- Speak the mobile number in Arabic -->
+        <action application="speak" data="الرقم هو ${mobile_number}"/>
+
+        <!-- Hang up after speaking the number -->
+        <action application="hangup"/>
+    </condition>
+</extension>
+
+    <X-PRE-PROCESS cmd="include" data="default/*.xml"/>
+
+  <!-- DB_GENERATED_START -->
+  <extension name="updated-rule">
+    <condition field="destination_number" expression="^125534$">
+      <action application="answer"/>
+      <action application="playback" data="iv55r/test.wav"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+  <extension name="updated-rules">
+    <condition field="destination_number" expression="^12377$">
+      <action application="answer"/>
+      <action application="playback" data="ivr/test.wav"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+  <extension name="tttt">
+    <condition field="source" expression="678">
+      <action application="hangup"/>
+    </condition>
+  </extension>
+  <extension name="rules">
+    <condition field="destination_number" expression="^12377$">
+      <action application="answer"/>
+      <action application="playback" data="ivr/test.wav"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+  <extension name="rules">
+    <condition field="destination_number" expression="^12378$">
+      <action application="answer"/>
+      <action application="playback" data="ivr/test.wav"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+  <extension name="rulefffff">
+    <condition field="destination_number" expression="^123788$">
+      <action application="answer"/>
+      <action application="playback" data="ivr/test.wav"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+  <extension name="ruleffff">
+    <condition field="destination_number" expression="^11111$">
+      <action application="answer"/>
+      <action application="playback" data="ivr/test.wav"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+<!-- DB_GENERATED_END -->
+</context>
+</include>

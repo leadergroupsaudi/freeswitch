@@ -1,0 +1,491 @@
+<?php
+ob_start();
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../lib/FreeSwitchESL.php';
+require_once __DIR__ . '/../../lib/AclXML.php';
+require_once __DIR__ . '/../../lib/Auth.php';
+
+header('Content-Type: application/json');
+authenticateRequest();
+
+$method = $_SERVER['REQUEST_METHOD'];
+$uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// ── EXTRACT IDs ────────────────────────────────────────────────────────────
+$listId  = null;
+$entryId = null;
+if (preg_match('#/acls/(\d+)/entries/(\d+)#', $uri, $m)) {
+    $listId  = (int)$m[1];
+    $entryId = (int)$m[2];
+} elseif (preg_match('#/acls/(\d+)/entries#', $uri, $m)) {
+    $listId = (int)$m[1];
+} elseif (preg_match('#/acls/(\d+)#', $uri, $m)) {
+    $listId = (int)$m[1];
+}
+$isEntryRoute = (strpos($uri, '/entries') !== false);
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+
+function jsonBody() {
+    $data = json_decode(file_get_contents('php://input'), true);
+    return is_array($data) ? $data : array();
+}
+
+function sendError($code, $message, $details = null) {
+    ob_clean();
+    http_response_code($code);
+    $resp = array('success' => false, 'error' => $message);
+    if ($details) $resp['details'] = $details;
+    echo json_encode($resp);
+    ob_end_flush();
+    exit;
+}
+
+function sendSuccess($data = array(), $code = 200) {
+    ob_clean();
+    http_response_code($code);
+    echo json_encode(array_merge(array('success' => true), $data));
+    ob_end_flush();
+    exit;
+}
+
+function validateCIDR($cidr) {
+    if (strpos($cidr, '$') === 0) return true;
+    if (preg_match('#^(\d{1,3}\.){3}\d{1,3}(/\d{1,2})?$#', $cidr)) {
+        $parts  = explode('/', $cidr);
+        $octets = explode('.', $parts[0]);
+        $mask   = isset($parts[1]) ? (int)$parts[1] : 32;
+        foreach ($octets as $o) { if ((int)$o > 255) return false; }
+        return ($mask >= 0 && $mask <= 32);
+    }
+    if (preg_match('#^[0-9a-fA-F:]+(/\d{1,3})?$#', $cidr)) {
+        $parts = explode('/', $cidr);
+        if (filter_var($parts[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+            $mask = isset($parts[1]) ? (int)$parts[1] : 128;
+            return ($mask >= 0 && $mask <= 128);
+        }
+    }
+    return false;
+}
+
+function getAllListsWithEntries($db) {
+    $lists = $db->query("SELECT * FROM acl_lists ORDER BY id ASC")->fetchAll();
+    foreach ($lists as &$list) {
+        $s = $db->prepare("SELECT * FROM acl_entries WHERE list_id = ? ORDER BY id ASC");
+        $s->execute(array($list['id']));
+        $list['entries'] = $s->fetchAll();
+        $list['enabled'] = (bool)$list['enabled'];
+    }
+    unset($list);
+    return $lists;
+}
+
+function reloadAcl() {
+    try {
+        $esl = new FreeSwitchESL();
+        if ($esl->connect()) {
+            $esl->reloadACL();
+            $esl->disconnect();
+            writeLog('INFO', "FreeSWITCH reloadacl triggered");
+        } else {
+            writeLog('WARN', "ESL failed — XML saved but reloadacl not triggered");
+        }
+    } catch (Exception $e) {
+        writeLog('WARN', "ESL exception (non-fatal): " . $e->getMessage());
+    }
+}
+
+// ── ATOMIC SAVE ────────────────────────────────────────────────────────────
+
+function aclAtomicSave($db, $operation, $dbWork) {
+    // STEP 1: DB
+    try {
+        $db->beginTransaction();
+        $result = $dbWork();
+        if (!$result['success']) { $db->rollBack(); return $result; }
+        $db->commit();
+        writeLog('INFO', "ACL DB {$operation} success");
+    } catch (Exception $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        writeLog('ERROR', "ACL DB {$operation} failed: " . $e->getMessage());
+        return array('success' => false, 'error' => 'Database error: ' . $e->getMessage());
+    }
+
+    // STEP 2: Write XML
+    $lists     = getAllListsWithEntries($db);
+    $xmlResult = AclXML::write($lists);
+
+    if (!$xmlResult['success']) {
+        writeLog('ERROR', "XML write failed: {$xmlResult['error']} | rolling back DB");
+        try {
+            if ($operation === 'INSERT_LIST' && isset($result['id'])) {
+                $db->prepare("DELETE FROM acl_lists WHERE id = ?")
+                   ->execute(array($result['id']));
+            } elseif ($operation === 'UPDATE_LIST' && isset($result['snapshot'])) {
+                $s = $result['snapshot'];
+                $db->prepare("UPDATE acl_lists SET
+                    name=:n,default_policy=:dp,description=:desc,enabled=:en WHERE id=:id")
+                   ->execute(array(':n'=>$s['name'],':dp'=>$s['default_policy'],
+                       ':desc'=>$s['description'],':en'=>$s['enabled'],':id'=>$s['id']));
+                AclXML::write(getAllListsWithEntries($db));
+            } elseif ($operation === 'DELETE_LIST' && isset($result['snapshot'])) {
+                $s = $result['snapshot'];
+                $db->prepare("INSERT INTO acl_lists
+                    (id,name,default_policy,description,enabled,created_at)
+                    VALUES(:id,:n,:dp,:desc,:en,:cat)")
+                   ->execute(array(':id'=>$s['id'],':n'=>$s['name'],':dp'=>$s['default_policy'],
+                       ':desc'=>$s['description'],':en'=>$s['enabled'],':cat'=>$s['created_at']));
+                if (!empty($result['entries'])) {
+                    $se = $db->prepare("INSERT INTO acl_entries
+                        (id,list_id,type,cidr,domain,description,created_at)
+                        VALUES(:id,:lid,:type,:cidr,:domain,:desc,:cat)");
+                    foreach ($result['entries'] as $e) {
+                        $se->execute(array(':id'=>$e['id'],':lid'=>$e['list_id'],
+                            ':type'=>$e['type'],':cidr'=>$e['cidr'],
+                            ':domain'=>$e['domain'],':desc'=>$e['description'],
+                            ':cat'=>$e['created_at']));
+                    }
+                }
+                AclXML::write(getAllListsWithEntries($db));
+            } elseif ($operation === 'INSERT_ENTRY' && isset($result['id'])) {
+                $db->prepare("DELETE FROM acl_entries WHERE id = ?")
+                   ->execute(array($result['id']));
+            } elseif ($operation === 'UPDATE_ENTRY' && isset($result['snapshot'])) {
+                $s = $result['snapshot'];
+                $db->prepare("UPDATE acl_entries SET
+                    type=:type,cidr=:cidr,domain=:domain,description=:desc WHERE id=:id")
+                   ->execute(array(':type'=>$s['type'],':cidr'=>$s['cidr'],
+                       ':domain'=>$s['domain'],':desc'=>$s['description'],':id'=>$s['id']));
+                AclXML::write(getAllListsWithEntries($db));
+            } elseif ($operation === 'DELETE_ENTRY' && isset($result['snapshot'])) {
+                $s = $result['snapshot'];
+                $db->prepare("INSERT INTO acl_entries
+                    (id,list_id,type,cidr,domain,description,created_at)
+                    VALUES(:id,:lid,:type,:cidr,:domain,:desc,:cat)")
+                   ->execute(array(':id'=>$s['id'],':lid'=>$s['list_id'],
+                       ':type'=>$s['type'],':cidr'=>$s['cidr'],
+                       ':domain'=>$s['domain'],':desc'=>$s['description'],
+                       ':cat'=>$s['created_at']));
+                AclXML::write(getAllListsWithEntries($db));
+            }
+        } catch (Exception $re) {
+            writeLog('ERROR', "Rollback failed: " . $re->getMessage());
+        }
+        return array('success'=>false,'error'=>'Failed to update ACL file','detail'=>$xmlResult['error']);
+    }
+
+    writeLog('INFO', "ACL XML write success");
+    reloadAcl();
+    return array_merge(array('success' => true), $result);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  ROUTING
+// ══════════════════════════════════════════════════════════════════════════
+
+try {
+    $db   = getDB();
+    $list = null;
+
+    // Check list exists for all entry routes
+    if ($listId && $isEntryRoute) {
+        $chk = $db->prepare("SELECT * FROM acl_lists WHERE id = ?");
+        $chk->execute(array($listId));
+        $list = $chk->fetch();
+        if (!$list) sendError(404, 'ACL list not found');
+    }
+
+    // ── GET /api/admin/acls ───────────────────────────────────────────────
+    if ($method === 'GET' && !$listId && !$isEntryRoute) {
+        $lists = getAllListsWithEntries($db);
+        writeLog('INFO', "ACL GET ALL — " . count($lists) . " lists");
+        writeSeparator();
+        sendSuccess(array('data' => $lists, 'total' => count($lists)));
+    }
+
+    // ── GET /api/admin/acls/:id ───────────────────────────────────────────
+    if ($method === 'GET' && $listId && !$isEntryRoute) {
+        $stmt = $db->prepare("SELECT * FROM acl_lists WHERE id = ?");
+        $stmt->execute(array($listId));
+        $list = $stmt->fetch();
+        if (!$list) sendError(404, 'ACL list not found');
+        $s = $db->prepare("SELECT * FROM acl_entries WHERE list_id = ? ORDER BY id ASC");
+        $s->execute(array($listId));
+        $list['entries'] = $s->fetchAll();
+        $list['enabled'] = (bool)$list['enabled'];
+        writeLog('INFO', "ACL GET single | ID:{$listId} | name:'{$list['name']}'");
+        writeSeparator();
+        sendSuccess(array('data' => $list));
+    }
+
+    // ── POST /api/admin/acls ──────────────────────────────────────────────
+    if ($method === 'POST' && !$listId && !$isEntryRoute) {
+        $body   = jsonBody();
+        $errors = array();
+        if (empty($body['name']))
+            $errors[] = "name is required";
+        if (!empty($body['name']) && !preg_match('/^[\w\-\.]+$/', $body['name']))
+            $errors[] = "name: only letters, numbers, hyphens, dots, underscores";
+        if (empty($body['default_policy']))
+            $errors[] = "default_policy is required (allow or deny)";
+        if (!empty($body['default_policy']) &&
+            !in_array($body['default_policy'], array('allow','deny')))
+            $errors[] = "default_policy must be 'allow' or 'deny'";
+        if (!empty($errors)) sendError(422, 'Validation failed', $errors);
+
+        $dup = $db->prepare("SELECT COUNT(*) FROM acl_lists WHERE name = ?");
+        $dup->execute(array($body['name']));
+        if ((int)$dup->fetchColumn() > 0)
+            sendError(409, 'Duplicate entry', array("ACL list '{$body['name']}' already exists"));
+
+        $newId  = null;
+        $result = aclAtomicSave($db, 'INSERT_LIST',
+            function() use ($db, $body, &$newId) {
+                $s = $db->prepare("INSERT INTO acl_lists
+                    (name,default_policy,description,enabled)
+                    VALUES(:name,:dp,:desc,:en)");
+                $s->execute(array(
+                    ':name' => $body['name'],
+                    ':dp'   => $body['default_policy'],
+                    ':desc' => isset($body['description']) ? $body['description'] : '',
+                    ':en'   => isset($body['enabled'])     ? (int)$body['enabled'] : 1,
+                ));
+                $newId = (int)$db->lastInsertId();
+                return array('success' => true, 'id' => $newId);
+            }
+        );
+        if (!$result['success']) sendError(500, $result['error']);
+        writeLog('INFO', "ACL LIST CREATED | ID:{$newId} | name:'{$body['name']}'");
+        writeSeparator();
+        sendSuccess(array('id' => $newId), 201);
+    }
+
+    // ── PUT /api/admin/acls/:id ───────────────────────────────────────────
+    if ($method === 'PUT' && $listId && !$isEntryRoute) {
+        $stmt = $db->prepare("SELECT * FROM acl_lists WHERE id = ?");
+        $stmt->execute(array($listId));
+        $existing = $stmt->fetch();
+        if (!$existing) sendError(404, 'ACL list not found');
+
+        $body   = jsonBody();
+        $errors = array();
+        if (isset($body['name']) && !preg_match('/^[\w\-\.]+$/', $body['name']))
+            $errors[] = "name: only letters, numbers, hyphens, dots, underscores";
+        if (isset($body['default_policy']) &&
+            !in_array($body['default_policy'], array('allow','deny')))
+            $errors[] = "default_policy must be 'allow' or 'deny'";
+        if (!empty($errors)) sendError(422, 'Validation failed', $errors);
+
+        if (!empty($body['name'])) {
+            $dup = $db->prepare("SELECT COUNT(*) FROM acl_lists WHERE name=? AND id!=?");
+            $dup->execute(array($body['name'], $listId));
+            if ((int)$dup->fetchColumn() > 0)
+                sendError(409, 'Duplicate entry',
+                    array("ACL list name '{$body['name']}' already exists"));
+        }
+
+        $result = aclAtomicSave($db, 'UPDATE_LIST',
+            function() use ($db, $body, $listId, $existing) {
+                $db->prepare("UPDATE acl_lists SET
+                    name=:n,default_policy=:dp,description=:desc,enabled=:en WHERE id=:id")
+                   ->execute(array(
+                       ':n'    => isset($body['name'])           ? $body['name']           : $existing['name'],
+                       ':dp'   => isset($body['default_policy']) ? $body['default_policy'] : $existing['default_policy'],
+                       ':desc' => isset($body['description'])    ? $body['description']    : $existing['description'],
+                       ':en'   => isset($body['enabled'])        ? (int)$body['enabled']   : $existing['enabled'],
+                       ':id'   => $listId,
+                   ));
+                return array('success' => true, 'snapshot' => $existing);
+            }
+        );
+        if (!$result['success']) sendError(500, $result['error']);
+        writeLog('INFO', "ACL LIST UPDATED | ID:{$listId} | name:'{$existing['name']}'");
+        writeSeparator();
+        sendSuccess();
+    }
+
+    // ── DELETE /api/admin/acls/:id ────────────────────────────────────────
+    if ($method === 'DELETE' && $listId && !$isEntryRoute) {
+        $stmt = $db->prepare("SELECT * FROM acl_lists WHERE id = ?");
+        $stmt->execute(array($listId));
+        $existing = $stmt->fetch();
+        if (!$existing) sendError(404, 'ACL list not found');
+
+        $se = $db->prepare("SELECT * FROM acl_entries WHERE list_id = ?");
+        $se->execute(array($listId));
+        $entries = $se->fetchAll();
+
+        $result = aclAtomicSave($db, 'DELETE_LIST',
+            function() use ($db, $listId, $existing, $entries) {
+                $db->prepare("DELETE FROM acl_lists WHERE id = ?")->execute(array($listId));
+                return array('success'=>true,'snapshot'=>$existing,'entries'=>$entries);
+            }
+        );
+        if (!$result['success']) sendError(500, $result['error']);
+        writeLog('INFO', "ACL LIST DELETED | ID:{$listId} | name:'{$existing['name']}'"
+            . " | entries:" . count($entries));
+        writeSeparator();
+        sendSuccess();
+    }
+
+    // ── GET /api/admin/acls/:id/entries ───────────────────────────────────
+    if ($method === 'GET' && $listId && $isEntryRoute && !$entryId) {
+        $s = $db->prepare("SELECT * FROM acl_entries WHERE list_id = ? ORDER BY id ASC");
+        $s->execute(array($listId));
+        $entries = $s->fetchAll();
+        writeLog('INFO', "ACL GET entries | list_id:{$listId} | count:" . count($entries));
+        writeSeparator();
+        sendSuccess(array(
+            'list_id'        => (int)$listId,
+            'name'           => $list['name'],
+            'default_policy' => $list['default_policy'],
+            'total'          => count($entries),
+            'entries'        => $entries,
+        ));
+    }
+
+    // ── GET /api/admin/acls/:id/entries/:eid ─────────────────────────────
+    if ($method === 'GET' && $listId && $isEntryRoute && $entryId) {
+        $s = $db->prepare("SELECT * FROM acl_entries WHERE id = ? AND list_id = ?");
+        $s->execute(array($entryId, $listId));
+        $entry = $s->fetch();
+        if (!$entry) sendError(404, 'ACL entry not found');
+        writeLog('INFO', "ACL GET entry | list_id:{$listId} | entry_id:{$entryId}");
+        writeSeparator();
+        sendSuccess(array('data' => $entry));
+    }
+
+    // ── POST /api/admin/acls/:id/entries ──────────────────────────────────
+    if ($method === 'POST' && $listId && $isEntryRoute && !$entryId) {
+        $body   = jsonBody();
+        $errors = array();
+        if (empty($body['type']))
+            $errors[] = "type is required (allow or deny)";
+        if (!empty($body['type']) && !in_array($body['type'], array('allow','deny')))
+            $errors[] = "type must be 'allow' or 'deny'";
+        if (empty($body['cidr']) && empty($body['domain']))
+            $errors[] = "either cidr or domain is required";
+        if (!empty($body['cidr']) && !validateCIDR($body['cidr']))
+            $errors[] = "cidr: invalid — use IPv4 (192.168.1.0/24) or IPv6 (::1/128)";
+        if (!empty($errors)) sendError(422, 'Validation failed', $errors);
+
+        $cidr   = !empty($body['cidr'])   ? $body['cidr']   : null;
+        $domain = !empty($body['domain']) ? $body['domain'] : null;
+
+        $dupSql    = "SELECT id FROM acl_entries WHERE list_id=? AND type=?";
+        $dupParams = array($listId, $body['type']);
+        if ($cidr)   { $dupSql .= " AND cidr=?";   $dupParams[] = $cidr; }
+        if ($domain) { $dupSql .= " AND domain=?"; $dupParams[] = $domain; }
+        $dup = $db->prepare($dupSql);
+        $dup->execute($dupParams);
+        if ($dup->fetch()) {
+            $val = $cidr ? $cidr : $domain;
+            sendError(409, 'Duplicate entry',
+                array("Entry type:{$body['type']} value:{$val}"
+                    . " already exists in list '{$list['name']}'"));
+        }
+
+        $newId  = null;
+        $result = aclAtomicSave($db, 'INSERT_ENTRY',
+            function() use ($db, $body, $listId, $cidr, $domain, &$newId) {
+                $s = $db->prepare("INSERT INTO acl_entries
+                    (list_id,type,cidr,domain,description)
+                    VALUES(:lid,:type,:cidr,:domain,:desc)");
+                $s->execute(array(
+                    ':lid'    => $listId,
+                    ':type'   => $body['type'],
+                    ':cidr'   => $cidr,
+                    ':domain' => $domain,
+                    ':desc'   => isset($body['description']) ? $body['description'] : '',
+                ));
+                $newId = (int)$db->lastInsertId();
+                return array('success' => true, 'id' => $newId);
+            }
+        );
+        if (!$result['success']) sendError(500, $result['error']);
+        $val = $cidr ? $cidr : $domain;
+        writeLog('INFO', "ACL ENTRY ADDED | list_id:{$listId} | list:'{$list['name']}'"
+            . " | entry_id:{$newId} | type:{$body['type']} | value:{$val}");
+        writeSeparator();
+        sendSuccess(array('id' => $newId), 201);
+    }
+
+    // ── PUT /api/admin/acls/:id/entries/:eid ─────────────────────────────
+    if ($method === 'PUT' && $listId && $isEntryRoute && $entryId) {
+        $s = $db->prepare("SELECT * FROM acl_entries WHERE id = ? AND list_id = ?");
+        $s->execute(array($entryId, $listId));
+        $existing = $s->fetch();
+        if (!$existing) sendError(404, 'ACL entry not found');
+
+        $body   = jsonBody();
+        $errors = array();
+        if (isset($body['type']) && !in_array($body['type'], array('allow','deny')))
+            $errors[] = "type must be 'allow' or 'deny'";
+        if (empty($body['cidr']) && empty($body['domain']))
+            $errors[] = "either cidr or domain is required";
+        if (!empty($body['cidr']) && !validateCIDR($body['cidr']))
+            $errors[] = "cidr: invalid format";
+        if (!empty($errors)) sendError(422, 'Validation failed', $errors);
+
+        $newType   = isset($body['type'])        ? $body['type']        : $existing['type'];
+        $newCidr   = !empty($body['cidr'])        ? $body['cidr']        : null;
+        $newDomain = !empty($body['domain'])      ? $body['domain']      : null;
+        $newDesc   = isset($body['description'])  ? $body['description'] : $existing['description'];
+
+        $dupSql    = "SELECT id FROM acl_entries WHERE list_id=? AND type=? AND id!=?";
+        $dupParams = array($listId, $newType, $entryId);
+        if ($newCidr)   { $dupSql .= " AND cidr=?";   $dupParams[] = $newCidr; }
+        if ($newDomain) { $dupSql .= " AND domain=?"; $dupParams[] = $newDomain; }
+        $dup = $db->prepare($dupSql);
+        $dup->execute($dupParams);
+        if ($dup->fetch())
+            sendError(409, 'Duplicate entry',
+                array("Another entry with same type and value exists in this list"));
+
+        $result = aclAtomicSave($db, 'UPDATE_ENTRY',
+            function() use ($db, $entryId, $newType, $newCidr, $newDomain, $newDesc, $existing) {
+                $db->prepare("UPDATE acl_entries SET
+                    type=:type,cidr=:cidr,domain=:domain,description=:desc WHERE id=:id")
+                   ->execute(array(':type'=>$newType,':cidr'=>$newCidr,
+                       ':domain'=>$newDomain,':desc'=>$newDesc,':id'=>$entryId));
+                return array('success' => true, 'snapshot' => $existing);
+            }
+        );
+        if (!$result['success']) sendError(500, $result['error']);
+        $val = $newCidr ? $newCidr : $newDomain;
+        writeLog('INFO', "ACL ENTRY UPDATED | list_id:{$listId} | list:'{$list['name']}'"
+            . " | entry_id:{$entryId} | type:{$newType} | value:{$val}");
+        writeSeparator();
+        sendSuccess();
+    }
+
+    // ── DELETE /api/admin/acls/:id/entries/:eid ───────────────────────────
+    if ($method === 'DELETE' && $listId && $isEntryRoute && $entryId) {
+        $s = $db->prepare("SELECT * FROM acl_entries WHERE id = ? AND list_id = ?");
+        $s->execute(array($entryId, $listId));
+        $existing = $s->fetch();
+        if (!$existing) sendError(404, 'ACL entry not found');
+
+        $result = aclAtomicSave($db, 'DELETE_ENTRY',
+            function() use ($db, $entryId, $listId, $existing) {
+                $db->prepare("DELETE FROM acl_entries WHERE id=? AND list_id=?")
+                   ->execute(array($entryId, $listId));
+                return array('success' => true, 'snapshot' => $existing);
+            }
+        );
+        if (!$result['success']) sendError(500, $result['error']);
+        $val = !empty($existing['cidr']) ? $existing['cidr'] : $existing['domain'];
+        writeLog('INFO', "ACL ENTRY DELETED | list_id:{$listId} | list:'{$list['name']}'"
+            . " | entry_id:{$entryId} | type:{$existing['type']} | value:{$val}");
+        writeSeparator();
+        sendSuccess();
+    }
+
+    sendError(405, 'Method Not Allowed');
+
+} catch (Exception $e) {
+    writeLog('ERROR', "ACL Exception: " . $e->getMessage()
+        . " | file:" . $e->getFile() . " | line:" . $e->getLine());
+    writeSeparator();
+    sendError(500, $e->getMessage());
+}

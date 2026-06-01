@@ -1,0 +1,187 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+$conn = new mysqli("localhost", "phpuser", "php123", "pbx_user");
+if ($conn->connect_error) {
+    die(json_encode(['success' => false, 'message' => 'DB connection failed']));
+}
+
+#header('Content-Type: application/json');
+
+#$action    = $_REQUEST['action']    ?? '';
+#$extension = $_REQUEST['extension'] ?? '';
+#$password  = $_REQUEST['password']  ?? '';
+#$name      = $_REQUEST['name']      ?? '';
+#$fs_path   = "/usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/" . $extension . ".xml";
+
+header('Content-Type: application/json');
+
+// ✅ Support JSON + POST + GET
+$data = json_decode(file_get_contents("php://input"), true);
+
+$action    = $data['action']    ?? $_POST['action']    ?? $_GET['action']    ?? '';
+$extension = $data['extension'] ?? $_POST['extension'] ?? $_GET['extension'] ?? '';
+$password  = $data['password']  ?? $_POST['password']  ?? $_GET['password']  ?? '';
+$name      = $data['name']      ?? $_POST['name']      ?? $_GET['name']      ?? '';
+
+$fs_path = "/usr/local/freeswitch-automax-instance/etc/freeswitch/directory/leaderfs.axionic.io/" . $extension . ".xml";
+function extensionExists($conn, $extension) {
+    $stmt = $conn->prepare("SELECT id FROM extensions WHERE extension = ?");
+    $stmt->bind_param("s", $extension);
+    $stmt->execute();
+    $stmt->store_result();
+    $exists = $stmt->num_rows > 0;
+    $stmt->close();
+    return $exists;
+}
+
+function getExtension($conn, $extension) {
+    $stmt = $conn->prepare("SELECT extension, password, name FROM extensions WHERE extension = ?");
+    $stmt->bind_param("s", $extension);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row    = $result->fetch_assoc();
+    $stmt->close();
+    return $row;
+}
+
+function buildXml($extension, $password, $name) {
+    return "<include>
+<user id=\"$extension\">
+<params>
+<param name=\"password\" value=\"$password\"/>
+<param name=\"vm-password\" value=\"$password\"/>
+</params>
+<variables>
+<variable name=\"toll_allow\" value=\"domestic,international,local\"/>
+<variable name=\"accountcode\" value=\"$extension\"/>
+<variable name=\"effective_caller_id_name\" value=\"$name\"/>
+<variable name=\"effective_caller_id_number\" value=\"$extension\"/>
+<variable name=\"outbound_caller_id_name\" value=\"$name\"/>
+<variable name=\"outbound_caller_id_number\" value=\"$extension\"/>
+</variables>
+</user>
+</include>";
+}
+
+// ============================================
+// CREATE
+// ============================================
+if ($action == "create") {
+    if (extensionExists($conn, $extension)) {
+        echo json_encode([
+            'success' => false,
+            'message' => "Extension $extension already exists. Use action=update to modify it."
+        ]);
+        exit;
+    }
+
+    $stmt = $conn->prepare("INSERT INTO extensions (extension, password, name) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $extension, $password, $name);
+    $stmt->execute();
+    $stmt->close();
+
+    file_put_contents($fs_path, buildXml($extension, $password, $name));
+    shell_exec("/bin/fs_cli_automax --port 8022 -x 'reloadxml'");
+
+    echo json_encode([
+        'success'   => true,
+        'message'   => "Extension $extension created successfully",
+        'extension' => $extension,
+        'name'      => $name
+    ]);
+}
+
+// ============================================
+// UPDATE — partial or full
+// ============================================
+elseif ($action == "update") {
+    if (!extensionExists($conn, $extension)) {
+        echo json_encode([
+            'success' => false,
+            'message' => "Extension $extension not found. Use action=create to add it."
+        ]);
+        exit;
+    }
+
+    // Fetch existing values from DB
+    $existing = getExtension($conn, $extension);
+
+    // Use new value if provided, else keep existing
+    $new_password = !empty($password) ? $password : $existing['password'];
+    $new_name     = !empty($name)     ? $name     : $existing['name'];
+
+    // Track what changed
+    $changed = [];
+    if ($new_password !== $existing['password']) $changed[] = 'password';
+    if ($new_name     !== $existing['name'])     $changed[] = 'name';
+
+    if (empty($changed)) {
+        echo json_encode([
+            'success' => false,
+            'message' => "Nothing to update — same values provided for extension $extension"
+        ]);
+        exit;
+    }
+
+    // Update DB
+    $stmt = $conn->prepare("UPDATE extensions SET password = ?, name = ? WHERE extension = ?");
+    $stmt->bind_param("sss", $new_password, $new_name, $extension);
+    $stmt->execute();
+    $stmt->close();
+
+    // Update XML file
+    file_put_contents($fs_path, buildXml($extension, $new_password, $new_name));
+    shell_exec("/bin/fs_cli_automax --port 8022 -x 'reloadxml'");
+
+    echo json_encode([
+        'success'   => true,
+        'message'   => "Extension $extension updated successfully",
+        'extension' => $extension,
+        'updated'   => $changed,
+        'name'      => $new_name,
+        'password'  => $new_password
+    ]);
+}
+
+// ============================================
+// DELETE
+// ============================================
+elseif ($action == "delete") {
+    if (!extensionExists($conn, $extension)) {
+        echo json_encode([
+            'success' => false,
+            'message' => "Extension $extension not found. Nothing to delete."
+        ]);
+        exit;
+    }
+
+    $stmt = $conn->prepare("DELETE FROM extensions WHERE extension = ?");
+    $stmt->bind_param("s", $extension);
+    $stmt->execute();
+    $stmt->close();
+
+    if (file_exists($fs_path)) {
+        unlink($fs_path);
+    }
+
+    shell_exec("/bin/fs_cli_automax --port 8022 -x 'reloadxml'");
+
+    echo json_encode([
+        'success'   => true,
+        'message'   => "Extension $extension deleted successfully",
+        'extension' => $extension
+    ]);
+}
+
+// ============================================
+// INVALID ACTION
+// ============================================
+else {
+    echo json_encode([
+        'success' => false,
+        'message' => "Invalid action. Use: create, update, delete"
+    ]);
+}
+?>

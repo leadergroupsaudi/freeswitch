@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<include>
+  <gateway name="test">
+    <param name="username"           value="tuiut"/>
+    <param name="password"           value="utiutiu"/>
+    <param name="realm"              value="tiutiu"/>
+    <param name="proxy"              value="iutiut"/>
+    <param name="register-proxy"     value="iutuiti"/>
+    <param name="apply-inbound-acl"  value="fujhyfuy"/>
+    <param name="from-user"          value="tiutiut"/>
+    <param name="from-domain"        value="utiut"/>
+    <param name="register"           value="true"/>
+    <param name="register-transport" value="udp"/>
+    <param name="expire-seconds"     value="3600"/>
+    <param name="retry-seconds"      value="30"/>
+    <param name="caller-id-in-from"  value="false"/>
+    <param name="outbound-caller-id-name"   value="ytyity"/>
+    <param name="outbound-caller-id-number" value="68758755898"/>
+    <param name="codec-prefs"        value="PCMU,PCMA,G729"/>
+  </gateway>
+</include>

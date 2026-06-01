@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<include>
+  <gateway name="ghdhfdgcncgbnh">
+    <param name="username"           value="akashajay.dev@gmail.com"/>
+    <param name="password"           value="password"/>
+    <param name="realm"              value="ghfgjfgjnjg"/>
+    <param name="proxy"              value="hthjd"/>
+    <param name="register-proxy"     value="hfjfgjf"/>
+    <param name="apply-inbound-acl"  value="gfjgf"/>
+    <param name="from-user"          value="ghjfggjhgjgc"/>
+    <param name="from-domain"        value="ghgjng"/>
+    <param name="register"           value="true"/>
+    <param name="register-transport" value="udp"/>
+    <param name="expire-seconds"     value="3600"/>
+    <param name="retry-seconds"      value="30"/>
+    <param name="caller-id-in-from"  value="false"/>
+    <param name="outbound-caller-id-name"   value="ghdfh"/>
+    <param name="outbound-caller-id-number" value="1234567890"/>
+    <param name="codec-prefs"        value="PCMU,PCMA,G729"/>
+  </gateway>
+</include>

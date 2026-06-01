@@ -1,0 +1,6 @@
+<configuration name="db.conf" description="LIMIT DB Configuration">
+	<settings>
+		<!--<param name="core-db-dsn" value="pgsql://hostaddr=127.0.0.1 dbname=freeswitch user=freeswitch password=AxiV0!P789"/>-->
+    <!--<param name="odbc-dsn" value="dsn:user:pass"/>-->
+  </settings>
+</configuration>

@@ -1,0 +1,6 @@
+RewriteEngine On
+
+RewriteRule ^api/admin/acls/([0-9]+)/entries/([0-9]+)$ dialplan-api/api/acl/acl_handler.php [L,QSA]
+RewriteRule ^api/admin/acls/([0-9]+)/entries$        dialplan-api/api/acl/acl_handler.php [L,QSA]
+RewriteRule ^api/admin/acls/([0-9]+)$                dialplan-api/api/acl/acl_handler.php [L,QSA]
+RewriteRule ^api/admin/acls$                         dialplan-api/api/acl/acl_handler.php [L,QSA]
