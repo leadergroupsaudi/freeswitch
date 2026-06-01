@@ -1,0 +1,182 @@
+{"IVRConfiguration":[
+    {
+        "IVRId": 3,
+        "IVRCode": "KFF - DEMO",
+        "IVRName": "KFF - DEMO",
+        "AltIVRName": null,
+        "GeneralSettingValues": [
+            {
+                "SettingId": 1,
+                "SettingnKey": "BusyTone",
+                "SettingValue": "com_busytone.wav"
+            },
+            {
+                "SettingId": 2,
+                "SettingnKey": "WaitTone",
+                "SettingValue": "com_waittone.wav"
+            },
+            {
+                "SettingId": 3,
+                "SettingnKey": "HoldTone",
+                "SettingValue": "com_holdtone.wav"
+            },
+            {
+                "SettingId": 4,
+                "SettingnKey": "AgentRedirectTone",
+                "SettingValue": "com_agentredirecttone.wav"
+            },
+            {
+                "SettingId": 5,
+                "SettingnKey": "CallRecordingAPIUrl",
+                "SettingValue": "https:\/\/automax.leadergroup.com\/API"
+            },
+            {
+                "SettingId": 6,
+                "SettingnKey": "IVRAvailablitySchedule",
+                "SettingValue": "[{\"Day\":\"SUN\",\"Schedule\":{\"From\":\"9:00AM\",\"To\":\"5:00PM\"}},{\"Day\":\"MON\",\"Schedule\":{\"From\":\"9:00AM\",\"To\":\"5:00PM\"}},{\"Day\":\"TUE\",\"Schedule\":{\"From\":\"9:00AM\",\"To\":\"5:00PM\"}},{\"Day\":\"WED\",\"Schedule\":{\"From\":\"9:00AM\",\"To\":\"5:00PM\"}},{\"Day\":\"THU\",\"Schedule\":{\"From\":\"9:00AM\",\"To\":\"1:00PM\"}},{\"Day\":\"FRI\",\"Schedule\":{}},{\"Day\":\"SAT\",\"Schedule\":{}}]"
+            },
+            {
+                "SettingId": 7,
+                "SettingnKey": "IVRUnavailablityDates",
+                "SettingValue": ""
+            },
+            {
+                "SettingId": 8,
+                "SettingnKey": "IVRUnavailablityAudio",
+                "SettingValue": "com_officeclosed.wav"
+            },
+            {
+                "SettingId": 9,
+                "SettingnKey": "ExternalCallType",
+                "SettingValue": "E"
+            },
+            {
+                "SettingId": 10,
+                "SettingnKey": "ExternalCallNumber",
+                "SettingValue": "1112"
+            },
+            {
+                "SettingId": 11,
+                "SettingnKey": "ExternalSIPLines",
+                "SettingValue": "[]"
+            },
+            {
+                "SettingId": 12,
+                "SettingnKey": "AgentRedirectMode",
+                "SettingValue": "6"
+            },
+            {
+                "SettingId": 13,
+                "SettingnKey": "TextToSpeechConfig",
+                "SettingValue": "{\r\n    \"APIId\": 19,\r\n    \"AudioResponseFieldTag\": \"ttsaudio_response\"\r\n}"
+            },
+            {
+                "SettingId": 14,
+                "SettingnKey": "SpeechToTextConfig",
+                "SettingValue": "{\r\n    \"APIId\": 20,\r\n    \"TextResponseFieldTag\": \"sttext_response\"\r\n}"
+            },
+            {
+                "SettingId": 15,
+                "SettingnKey": "LanguageList",
+                "SettingValue": "[{\r\n    \"LanguageCode\": 2,\r\n    \"LanguageName\": \"English\",\r\n    \"TTSLanguageCode\": \"en-US\",\r\n    \"STTLanguageCode\": \"en-US\",\r\n    \"TTSVoiceNameBuiltIn\": \"rms\",\r\n    \"TTSVoiceNameCloud\": \"en-US-Benjamin\"\r\n},\r\n{\r\n    \"LanguageCode\": 1,\r\n    \"LanguageName\": \"Arabic\",\r\n    \"TTSLanguageCode\": \"ar-SA\",    \r\n    \"STTLanguageCode\": \"ar-SA\",\r\n    \"TTSVoiceNameBuiltIn\": \"en-US-Benjamin\",\r\n    \"TTSVoiceNameCloud\":  \"ar-SA-ZariyahNeural\"\r\n}]"
+            }
+        ],
+        "IVRProcessFlow": [
+            {
+                "NodeId": 4001,
+                "NodeName": "Welcome Message",
+                "AltNodeName": "Welcome Message",
+                "OperationCode": 10,
+                "VoiceFileId": "com_welcome.wav",
+                "APIId": null,
+                "IsStartNode": true,
+                "ChildNodeConfig": [
+                    {
+                        "ChildNodeId": 4003,
+                        "InputKeys": null,
+                        "SaveInputToDB": false,
+                        "ApplyComparison": false,
+                        "OperandType": null,
+                        "OperandDataType": null,
+                        "CollectionTag": null,
+                        "ComparisonOperator": null,
+                        "Value1": null,
+                        "Value2": null
+                    }
+                ],
+                "RepeatLimit": 0,
+                "AudioPauseLength": 0,
+                "RecordingTypeId": null,
+                "InvalidResponseTypeCode": null,
+                "ValidKeys": null,
+                "InputType": null,
+                "InputLength": 0,
+                "IsLanguageSelect": false,
+                "InputTimeLimit": 0,
+                "TimeLimitResponseType": null,
+                "InvalidInputVoiceFileId": null,
+                "PlayNumberSourceType": null,
+                "PlayInputNodeId": null,
+                "TagName": null,
+                "TagValuePrefix": "",
+                "DeafultInput": null,
+                "IsRepetitive": false
+            },
+            {
+                "NodeId": 4002,
+                "NodeName": "Terminate Call",
+                "AltNodeName": "Terminate Call",
+                "OperationCode": 200,
+                "VoiceFileId": null,
+                "APIId": null,
+                "IsStartNode": false,
+                "ChildNodeConfig": null,
+                "RepeatLimit": 0,
+                "AudioPauseLength": 0,
+                "RecordingTypeId": null,
+                "InvalidResponseTypeCode": null,
+                "ValidKeys": null,
+                "InputType": null,
+                "InputLength": 0,
+                "IsLanguageSelect": false,
+                "InputTimeLimit": 0,
+                "TimeLimitResponseType": null,
+                "InvalidInputVoiceFileId": null,
+                "PlayNumberSourceType": null,
+                "PlayInputNodeId": null,
+                "TagName": null,
+                "TagValuePrefix": "",
+                "DeafultInput": null,
+                "IsRepetitive": false
+            },
+            {
+                "NodeId": 4003,
+                "NodeName": "Transfer Call to Agent",
+                "AltNodeName": "Transfer Call to Agent",
+                "OperationCode": 100,
+                "VoiceFileId": null,
+                "APIId": null,
+                "IsStartNode": false,
+                "ChildNodeConfig": null,
+                "RepeatLimit": 0,
+                "AudioPauseLength": 0,
+                "RecordingTypeId": null,
+                "InvalidResponseTypeCode": null,
+                "ValidKeys": null,
+                "InputType": null,
+                "InputLength": null,
+                "IsLanguageSelect": false,
+                "InputTimeLimit": 0,
+                "TimeLimitResponseType": null,
+                "InvalidInputVoiceFileId": null,
+                "PlayNumberSourceType": null,
+                "PlayInputNodeId": null,
+                "TagName": null,
+                "TagValuePrefix": "",
+                "DeafultInput": null,
+                "IsRepetitive": false
+            }
+        ]
+    }
+]
+}

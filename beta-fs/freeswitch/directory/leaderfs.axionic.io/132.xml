@@ -1,0 +1,16 @@
+<include>
+<user id="132">
+ <params>
+ <param name="password" value="4EO4jOSf"/>
+ <param name="vm-password" value="4EO4jOSf"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="132"/>
+ <variable name="effective_caller_id_name" value="Abdallah Mohamed Fathallah Khattab "/>
+ <variable name="effective_caller_id_number" value="132"/>
+ <variable name="outbound_caller_id_name" value="Abdallah Mohamed Fathallah Khattab "/>
+ <variable name="outbound_caller_id_number" value="132"/>
+ </variables>
+ </user>
+</include>

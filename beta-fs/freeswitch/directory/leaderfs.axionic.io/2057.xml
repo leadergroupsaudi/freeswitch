@@ -1,0 +1,16 @@
+<include>
+<user id="2057">
+ <params>
+ <param name="password" value="W*442C"/>
+ <param name="vm-password" value="W*442C"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="2057"/>
+ <variable name="effective_caller_id_name" value="Dima bint Abdullah bin Saad Al-Raqi"/>
+ <variable name="effective_caller_id_number" value="2057"/>
+ <variable name="outbound_caller_id_name" value="Dima bint Abdullah bin Saad Al-Raqi"/>
+ <variable name="outbound_caller_id_number" value="2057"/>
+ </variables>
+ </user>
+</include>

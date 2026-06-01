@@ -1,0 +1,18 @@
+<include>
+<user id="301">
+ <params>
+ <param name="password" value="HAP@01"/>
+ <param name="vm-password" value="HAP@01"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="301"/>
+ <variable name="effective_caller_id_name" value="Sajith"/>
+ <variable name="effective_caller_id_number" value="301"/>
+ <variable name="outbound_caller_id_name" value="Sajith"/>
+ <variable name="outbound_caller_id_number" value="301"/>
+ </variables>
+ </user>
+</include>
+
+

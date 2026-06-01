@@ -1,0 +1,17 @@
+<include>
+ <user id="277">
+    <params>
+      <param name="password" value="HAP@08"/>
+      <param name="vm-password" value="HAP@08"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="277"/>
+      <variable name="effective_caller_id_name" value="Pruthvi"/>
+      <variable name="effective_caller_id_number" value="277"/>
+      <variable name="outbound_caller_id_name" value="Pruthvi"/>
+      <variable name="outbound_caller_id_number" value="277"/>
+    </variables>
+  </user>
+</include>
+

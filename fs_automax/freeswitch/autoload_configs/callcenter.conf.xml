@@ -1,0 +1,112 @@
+<configuration name="callcenter.conf" description="CallCenter">
+  <settings>
+    <!--<param name="odbc-dsn" value="dsn:user:pass"/>-->
+    <!--<param name="dbname" value="/dev/shm/callcenter.db"/>-->
+    <!--<param name="cc-instance-id" value="single_box"/>-->
+  </settings>
+
+  <queues>
+
+    <queue name="support@default">
+      <param name="strategy" value="round-robin"/>
+      <param name="moh-sound" value="$${hold_music}"/>
+      <!--<param name="record-template" value="$${recordings_dir}/${strftime(%Y-%m-%d-%H-%M-%S)}.${destination_number}.${caller_id_number}.${uuid}.wav"/>-->
+      <param name="time-base-score" value="system"/>
+      <param name="max-wait-time" value="0"/>
+      <param name="max-wait-time-with-no-agent" value="0"/>
+      <param name="max-wait-time-with-no-agent-time-reached" value="5"/>
+      <param name="tier-rules-apply" value="false"/>
+      <param name="tier-rule-wait-second" value="300"/>
+      <param name="tier-rule-wait-multiply-level" value="true"/>
+      <param name="tier-rule-no-agent-no-wait" value="false"/>
+      <param name="discard-abandoned-after" value="60"/>
+      <param name="abandoned-resume-allowed" value="false"/>
+    </queue>
+
+    <queue name="ccm-ivrold@default">
+    <param name="strategy" value="round-robin"/>
+    <param name="moh-sound" value="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/ivr_audiofiles_tts_new/com_holdtone.wav"/>
+    <param name="record-template" value="$${recordings_dir}/IVR-CCM-Recordings/${uuid}_${caller_id_number}_${sip_h_X-CallLogId}.wav"/>
+    <param name="time-base-score" value="system"/>
+    <param name="max-wait-time" value="60"/> <!-- Time caller waits in the queue -->
+    <param name="max-wait-time-with-no-agent" value="10"/> <!-- Time with no agents before considering other options -->
+    <param name="max-wait-time-with-no-agent-time-reached" value="10"/>
+    <param name="tier-rules-apply" value="false"/> <!-- Adjust based on use of tier rules -->
+    <param name="tier-rule-wait-second" value="120"/> <!-- Time for tier rules to apply -->
+    <param name="tier-rule-wait-multiply-level" value="true"/>
+    <param name="tier-rule-no-agent-no-wait" value="false"/>
+    <param name="discard-abandoned-after" value="30"/> <!-- Time before discarding abandoned calls -->
+    <param name="abandoned-resume-allowed" value="false"/> <!-- Allow resuming abandoned calls if true -->
+</queue>
+
+
+    <queue name="ccm-ivr@default">
+      <param name="strategy" value="round-robin"/>
+      <!--<param name="moh-sound" value="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/ivr_audiofiles_qa/HoldTone.wav"/>-->
+      <param name="moh-sound" value="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/ivr_audiofiles_tts_new/com_holdtone.wav"/>
+      <param name="record-template" value="$${recordings_dir}/IVR-CCM-Recordings/${uuid}_${caller_id_number}_${sip_h_X-CallLogId}.wav"/>
+      <param name="time-base-score" value="system"/>
+      <param name="max-wait-time" value="60"/> <!---from 30 to 60 -->
+      <param name="max-wait-time-with-no-agent" value="5"/>
+      <param name="max-wait-time-with-no-agent-time-reached" value="5"/>
+      <param name="tier-rules-apply" value="false"/>
+      <param name="tier-rule-wait-second" value="120"/>
+      <param name="tier-rule-wait-multiply-level" value="true"/>
+      <param name="tier-rule-no-agent-no-wait" value="false"/>
+      <param name="discard-abandoned-after" value="30"/>
+      <param name="abandoned-resume-allowed" value="false"/>
+       <param name="agent_timeout" value="20"/> <!-- Agent timeout in seconds -->
+    </queue>
+
+    <queue name="ccm-ivr-kff@default">
+      <param name="strategy" value="round-robin"/>
+      <!--<param name="moh-sound" value="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/ivr_audiofiles_qa/HoldTone.wav"/>-->
+      <param name="moh-sound" value="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/ivr_audiofiles_tts_new/com_holdtone.wav"/>
+      <param name="record-template" value="$${recordings_dir}/IVR-CCM-Recordings/${uuid}_${caller_id_number}_${sip_h_X-CallLogId}.wav"/>
+      <param name="time-base-score" value="system"/>
+      <param name="max-wait-time" value="60"/>
+      <param name="max-wait-time-with-no-agent" value="5"/>
+      <param name="max-wait-time-with-no-agent-time-reached" value="5"/>
+      <param name="tier-rules-apply" value="false"/>
+      <param name="tier-rule-wait-second" value="120"/>
+      <param name="tier-rule-wait-multiply-level" value="true"/>
+      <param name="tier-rule-no-agent-no-wait" value="false"/>
+      <param name="discard-abandoned-after" value="30"/>
+      <param name="abandoned-resume-allowed" value="false"/>
+       <param name="agent_timeout" value="120"/>
+    </queue>
+
+
+  </queues>
+    <agents>
+<!-- WARNING: Configuration of XML Agents will be updated into the DB upon restart. -->
+<!-- WARNING: Configuration of XML Tiers will reset the level and position if those were supplied. -->
+<!-- WARNING: Agents and Tiers XML config shouldn't be used in a multi FS shared DB setup (Not currently supported anyway) -->
+<agent name="2000" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/2000@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+<agent name="2001" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/2001@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+    <agent name="2002" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/2002@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+    <agent name="3000" type="callback" contact="[abisolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/3000@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+    <agent name="3001" type="callback" contact="[absolute_codec_string='OPUS,PCMU,PCMA,G722',leg_timeout=20]user/3001@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+    <agent name="3002" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/3002@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+    <agent name="3003" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/3003@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+    <agent name="3004" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/3004@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+    <agent name="3006" type="callback" contact="[absolute_codec_string='OPUS,PCMU,PCMA,G722',leg_timeout=20]user/3006@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+</agents>
+
+ <tiers>
+        <tier agent="2000" queue="ccm-ivr@default" level="1" position="1"/>
+        <tier agent="2001" queue="ccm-ivr@default" level="1" position="1"/>
+        <tier agent="2002" queue="ccm-ivr@default" level="1" position="1"/>
+        <tier agent="3000" queue="ccm-ivr@default" level="1" position="1"/>
+        <tier agent="3001" queue="ccm-ivr@default" level="1" position="1"/>
+        <tier agent="3002" queue="ccm-ivr@default" level="1" position="1"/>
+	<tier agent="3003" queue="ccm-ivr@default" level="1" position="1"/>
+	<tier agent="3004" queue="ccm-ivr@default" level="1" position="1"/>
+	<tier agent="3006" queue="ccm-ivr@default" level="1" position="1"/>
+</tiers>
+
+
+    <!-- If no level or position is provided, they will default to 1.  You should do this to keep db value on restart. -->
+    <!-- <tier agent="1000@default" queue="support@default" level="1" position="1"/> -->
+    <!--  </tiers>-->
+</configuration> 

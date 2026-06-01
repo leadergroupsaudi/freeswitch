@@ -1,0 +1,14 @@
+{
+    "RecordingType": [
+        {
+            "RecordingTypeId": 1,
+            "TypeCode": "UR1",
+            "TypeName": "User Recording",
+            "AltTypeName": null,
+            "RecordTimeLimit": 3600,
+            "TypePrefix": "AGNT_CALL_REC",
+            "BasePath": null,
+            "ActiveStatus": true
+        }
+    ]
+}

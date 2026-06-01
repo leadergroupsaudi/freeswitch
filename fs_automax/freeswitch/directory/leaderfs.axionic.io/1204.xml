@@ -1,0 +1,18 @@
+<include>
+<user id="1204">
+<params>
+<param name="password" value="KFF1204E"/>
+<param name="vm-password" value="KFF1204E"/>
+</params>
+<variables>
+<variable name="toll_allow" value="domestic,international,local"/>
+<variable name="accountcode" value="1204"/>
+<variable name="effective_caller_id_name" value="Agent-1204"/>
+<variable name="effective_caller_id_number" value="1204"/>
+<variable name="outbound_caller_id_name" value="Agent-1204"/>
+<variable name="outbound_caller_id_number" value="1204"/>
+</variables>
+</user>
+</include>
+
+

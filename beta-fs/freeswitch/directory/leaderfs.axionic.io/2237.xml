@@ -1,0 +1,16 @@
+<include>
+  <user id="2237">
+    <params>
+      <param name="password" value="A)330X"/>
+      <param name="vm-password" value="A)330X"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="2237"/>
+      <variable name="effective_caller_id_name" value="Munira bint Muhammad bin Dhiban Al Amer Al-Qahtani"/>
+      <variable name="effective_caller_id_number" value="2237"/>
+      <variable name="outbound_caller_id_name" value="Munira bint Muhammad bin Dhiban Al Amer Al-Qahtani"/>
+      <variable name="outbound_caller_id_number" value="2237"/>
+    </variables>
+  </user>
+</include>

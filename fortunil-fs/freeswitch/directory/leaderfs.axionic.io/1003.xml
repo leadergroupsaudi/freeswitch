@@ -1,0 +1,16 @@
+<include>
+<user id="1003">
+<params>
+<param name="password" value="WE4E3"/>
+<param name="vm-password" value="WE4E3"/>
+</params>
+<variables>
+<variable name="toll_allow" value="domestic,international,local"/>
+<variable name="accountcode" value="1003"/>
+<variable name="effective_caller_id_name" value="Agent-1003"/>
+<variable name="effective_caller_id_number" value="1003"/>
+<variable name="outbound_caller_id_name" value="Agent-1003"/>
+<variable name="outbound_caller_id_number" value="1003"/>
+</variables>
+</user>
+</include>

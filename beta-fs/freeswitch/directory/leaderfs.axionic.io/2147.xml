@@ -1,0 +1,16 @@
+<include>
+  <user id="2147">
+    <params>
+      <param name="password" value="A(373B"/>
+      <param name="vm-password" value="A(373B"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="2147"/>
+      <variable name="effective_caller_id_name" value="Sattam bin Mohammed bin Abdul Latif Al-Hafidh"/>
+      <variable name="effective_caller_id_number" value="2147"/>
+      <variable name="outbound_caller_id_name" value="Sattam bin Mohammed bin Abdul Latif Al-Hafidh"/>
+      <variable name="outbound_caller_id_number" value="2147"/>
+    </variables>
+  </user>
+</include>

@@ -1,0 +1,34 @@
+{
+  "status": "SUCCESS",
+  "message": "Web API information is fetched successfully",
+  "result": [
+    {
+      "apiId": 1,
+      "apiDescription": "Office Closed - Upload Recording",
+      "apiAltDescription": "Office Closed - Upload Recording",
+      "apiType": 1,
+      "serviceURL": "https://fortunil.leadergroup.com/api/method/axionic_integration.axionic_integration.api.voip.UpdateRecordingChildTable",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "multipart/form-data",
+      "apiInput": "[{\"FieldName\":\"CallLogId\",\"InputType\":\"F\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Call_Log_Id\"},{\"FieldName\":\"RecordingType\",\"InputType\":\"F\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"A\"},{\"FieldName\":\"FileName\",\"InputType\":\"F\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"C_FileName\"},{\"FieldName\":\"Duration\",\"InputType\":\"F\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"C_RecordingDuration\"},{\"FieldName\":\"StartedDate\",\"InputType\":\"F\",\"InputValueType\":\"E\",\"InputDataType\":\"D\",\"InputValue\":\"C_DateTime\"},{\"FieldName\":\"File\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"F\",\"InputValue\":\"CallerMessageRecording\"}]",      
+      "apiOutput": "[{\"ResultFieldTag\":\"status_response\",\"ResultFieldName\":\"message\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFeildId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+      "successMessageText": "Recording uploaded Successfully",
+      "failureMessageText": "Failed to upload recording"
+    },
+    {
+      "apiId": 2,
+      "apiDescription": "Agent Evaluation Update",
+      "apiAltDescription": "Agent Evaluation Update",
+      "apiType": 1,
+      "serviceURL": "https://fortunil.leadergroup.com/api/method/axionic_integration.axionic_integration.api.requestapi.create_agent_eva",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": "[{\"FieldName\":\"agent_extension\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Receiver_Extension_Code\"},{\"FieldName\":\"caller_extension\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Caller_Id\"},{\"FieldName\":\"call_log\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Call_Log_Id\"},{\"FieldName\":\"date_and_time_of_call\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"D\",\"InputValue\":\"C_DateTime\"},{\"FieldName\":\"rating_value\",\"InputType\":\"R\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"AgentEvalFeedback\"}]",      
+      "apiOutput": "[{\"ResultFieldTag\":\"status_response\",\"ResultFieldName\":\"message\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFeildId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+      "successMessageText": "Recording uploaded Successfully",
+      "failureMessageText": "Failed to upload recording"
+    }
+  ]
+}

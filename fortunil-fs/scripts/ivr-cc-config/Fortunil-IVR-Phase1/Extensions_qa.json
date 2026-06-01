@@ -1,0 +1,68 @@
+{
+    "Extensions": [
+        {
+            "ExtensionCode": "2900",
+            "IsAgent": false,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "2901",
+            "IsAgent": false,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "3600",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "3601",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "3602",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "3603",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "3604",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        },
+        {
+            "ExtensionCode": "3605",
+            "IsAgent": true,
+            "PriorityOrder": 1,
+            "EnableOutgoing": true,
+            "EnableCallBack": true,
+            "EnableRecording": true
+        }
+    ]
+}

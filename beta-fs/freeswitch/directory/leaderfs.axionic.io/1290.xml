@@ -1,0 +1,16 @@
+<include>
+<user id="1290">
+ <params>
+ <param name="password" value="wpGpISxX"/>
+ <param name="vm-password" value="wpGpISxX"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="1290"/>
+ <variable name="effective_caller_id_name" value="Vijay Kumar Yalla "/>
+ <variable name="effective_caller_id_number" value="1290"/>
+ <variable name="outbound_caller_id_name" value="Vijay Kumar Yalla "/>
+ <variable name="outbound_caller_id_number" value="1290"/>
+ </variables>
+ </user>
+</include>

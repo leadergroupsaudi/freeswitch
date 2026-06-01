@@ -1,0 +1,18 @@
+<include>
+  <user id="8888">
+    <params>
+      <param name="password" value="8888"/>
+      <param name="vm-password" value="8888"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="8888"/>
+      <variable name="user_context" value="default"/>
+      <variable name="effective_caller_id_name" value="Extension 8888"/>
+      <variable name="effective_caller_id_number" value="8888"/>
+      <variable name="outbound_caller_id_name" value="$${outbound_caller_name}"/>
+      <variable name="outbound_caller_id_number" value="$${outbound_caller_id}"/>
+      <variable name="callgroup" value="techsupport"/>
+    </variables>
+  </user>
+</include>

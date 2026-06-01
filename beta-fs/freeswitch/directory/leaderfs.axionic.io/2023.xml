@@ -1,0 +1,16 @@
+<include>
+<user id="2023">
+ <params>
+ <param name="password" value="V#713U"/>
+ <param name="vm-password" value="V#713U"/>
+ </params>
+ <variables>
+ <variable name="toll_allow" value="domestic,international,local"/>
+ <variable name="accountcode" value="2023"/>
+ <variable name="effective_caller_id_name" value="GHARSAN MOHAMMED ZAIN ALBIHARI"/>
+ <variable name="effective_caller_id_number" value="2023"/>
+ <variable name="outbound_caller_id_name" value="GHARSAN MOHAMMED ZAIN ALBIHARI"/>
+ <variable name="outbound_caller_id_number" value="2023"/>
+ </variables>
+ </user>
+</include>

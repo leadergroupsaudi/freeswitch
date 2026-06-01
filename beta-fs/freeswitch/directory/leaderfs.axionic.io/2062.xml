@@ -1,0 +1,16 @@
+<include>
+  <user id="2062">
+    <params>
+      <param name="password" value="U$705M"/>
+      <param name="vm-password" value="U$705M"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="2062"/>
+      <variable name="effective_caller_id_name" value="Norah Mutlaq AlHajri"/>
+      <variable name="effective_caller_id_number" value="2062"/>
+      <variable name="outbound_caller_id_name" value="Norah Mutlaq AlHajri"/>
+      <variable name="outbound_caller_id_number" value="2062"/>
+    </variables>
+  </user>
+</include>

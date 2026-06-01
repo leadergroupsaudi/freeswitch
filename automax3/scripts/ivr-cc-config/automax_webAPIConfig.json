@@ -1,0 +1,412 @@
+{
+   "status":"SUCCESS",
+   "message":"Web API information is fetched successfully",
+   "result":[
+	 {
+  	"apiId": 10,
+  	"apiDescription": "Authentication API",
+  	"apiAltDescription": "Authentication API",
+  	"apiType": 1,
+  	"serviceURL": "https://automax.discretal.com/auth/oauth2/token",
+  	"methodType": "POST",
+  	"securityMode": "B",
+  	"inputMediaType": "application/x-www-form-urlencoded",
+  	"apiInput": "[{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"Basic NDQxMTE5NzQ5MTM4NDE1NjE3OmxKVER1dENxUHljSUVJVUxYZ29JamF2S3NvZ1dtNEZDSmNXeHhiNExFbXJxcWtrblN1eVM5MDU4UGtTREpyWjc=\"},{\"FieldName\":\"grant_type\",\"InputType\":\"R\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"client_credentials\"},{\"FieldName\":\"scope\",\"InputType\":\"R\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"profile api\"}]",
+  "apiOutput": "[{\"ResultFieldTag\":\"access_token\",\"ResultFieldName\":\"token\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":1,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+  	"successMessageText": "Authentication is Success",
+  	"failureMessageText": "Authentication is Failed"
+      },
+
+      {
+  "apiId": 11,
+  "apiDescription": "Create Incident API - AR",
+  "apiAltDescription": "Create Incident API - AR",
+  "apiType": 1,
+"serviceURL":   "https://automax.discretal.com/api/compose/namespace/425787942130548737/module/425787942127468545/record/",   
+  "methodType": "POST",
+  "securityMode": "A",
+  "inputMediaType": "application/json",
+  "apiInput": {
+    "values": [
+      {
+        "name": "Authorization",
+        "value": "Bearer {access_token}",
+        "InputType": "H",
+        "InputValueType": "D",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Channel",
+        "value": "IVR",
+        "InputType": "R",
+        "InputValueType": "S",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Criticality",
+        "value": "Low",
+        "InputType": "R",
+        "InputValueType": "S",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Caller_name",
+        "value": "{{CallerNameTextAr}}",
+        "InputType": "R",
+        "InputValueType": "D",
+        "InputDataType": "S"
+      },
+      {
+        "name": "National_ID",
+        "value": "KSA",
+        "InputType": "R",
+        "InputValueType": "S",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Mobile_number",
+        "value": "+966{{MobileNumberAr}}",
+        "InputType": "R",
+        "InputValueType": "D",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Classification",
+        "value": "{{ClassificationIdAr}}",
+        "InputType": "R",
+        "InputValueType": "D",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Incident_reason",
+        "value": "{{IncidentDetailsTextAr}}",
+        "InputType": "R",
+        "InputValueType": "D",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Incident_Description",
+        "value": "{{IncidentDetailsTextAr}}",
+        "InputType": "R",
+        "InputValueType": "D",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Map",
+        "value": "{\"coordinates\": [0.000, 0.000]}",
+        "InputType": "R",
+        "InputValueType": "S",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Location",
+        "value": "{{LocationIdAr}}",
+        "InputType": "R",
+        "InputValueType": "D",
+        "InputDataType": "S"
+      },
+      {
+        "name": "District",
+        "value": "{{LocationIdAr}}",
+        "InputType": "R",
+        "InputValueType": "D",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Street",
+        "value": "",
+        "InputType": "R",
+        "InputValueType": "S",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Status",
+        "value": "Open",
+        "InputType": "R",
+        "InputValueType": "S",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Assigned_To",
+        "value": "",
+        "InputType": "R",
+        "InputValueType": "S",
+        "InputDataType": "S"
+      },
+      {
+        "name": "Comments",
+        "value": "",
+        "InputType": "R",
+        "InputValueType": "S",
+        "InputDataType": "S"
+      }
+    ]
+  },
+  "apiOutput": [
+    {
+      "ResultFieldTag": "status_response",
+      "ResultFieldName": "status",
+      "ParentResultId": null,
+      "IsList": false,
+      "ListIndex": 0,
+      "ListFilter": null,
+      "OutputFieldId": 240,
+      "DefaultValue": "",
+      "IsSuccessValidator": false,
+      "SuccessValue": ""
+    },
+    {
+      "ResultFieldTag": "message_reponse",
+      "ResultFieldName": "message",
+      "ParentResultId": null,
+      "IsList": false,
+      "ListIndex": 0,
+      "ListFilter": null,
+      "OutputFieldId": 241,
+      "DefaultValue": "0",
+      "IsSuccessValidator": false,
+      "SuccessValue": ""
+    },
+    {
+      "ResultFieldTag": "result_reponse",
+      "ResultFieldName": "result",
+      "ParentResultId": null,
+      "IsList": false,
+      "ListIndex": 0,
+      "ListFilter": null,
+      "OutputFieldId": 242,
+      "DefaultValue": "0",
+      "IsSuccessValidator": false,
+      "SuccessValue": ""
+    },
+    {
+      "ResultFieldTag": "incident_no_reponse",
+      "ResultFieldName": "result",
+      "ParentResultId": "result_reponse",
+      "IsList": false,
+      "ListIndex": 0,
+      "ListFilter": null,
+      "OutputFieldId": 243,
+      "DefaultValue": "0",
+      "IsSuccessValidator": false,
+      "SuccessValue": ""
+    }
+  ],
+  "successMessageText": "Incident Created Successfully",
+  "failureMessageText": "Failed to create Incident"
+},
+      {
+      "apiId": 12,
+  "apiDescription": "Create Incident API - EN",
+  "apiAltDescription": "Create Incident API - EN",
+  "apiType": 1,
+  "serviceURL": "https://automax.discretal.com/api/compose/namespace/425787942130548737/module/425787942127468545/record/",     
+  "methodType": "POST",
+  "securityMode": "A",
+  "inputMediaType": "application/json",
+  "apiInput": {
+  "values": [
+    {
+      "name": "Authorization",
+      "value": "Bearer {access_token}",
+      "InputType": "H",
+      "InputValueType": "D",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Channel",
+      "value": "IVR",
+      "InputType": "R",
+      "InputValueType": "S",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Criticality",
+      "value": "Low",
+      "InputType": "R",
+      "InputValueType": "S",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Caller_name",
+      "value": "{{CallerNameTextEn}}",
+      "InputType": "R",
+      "InputValueType": "D",
+      "InputDataType": "S"
+    },
+    {
+      "name": "National_ID",
+      "value": "IND",
+      "InputType": "R",
+      "InputValueType": "S",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Mobile_number",
+      "value": "+91{{MobileNumberEn}}",
+      "InputType": "R",
+      "InputValueType": "D",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Classification",
+      "value": "{{ClassificationIdEn}}",
+      "InputType": "R",
+      "InputValueType": "D",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Incident_reason",
+      "value": "{{IncidentDetailsTextEn}}",
+      "InputType": "R",
+      "InputValueType": "D",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Incident_Description",
+      "value": "{{IncidentDetailsTextEn}}",
+      "InputType": "R",
+      "InputValueType": "D",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Map",
+      "value": "{\"coordinates\": [0.000, 0.000]}",
+      "InputType": "R",
+      "InputValueType": "S",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Location",
+      "value": "{{LocationIdEn}}",
+      "InputType": "R",
+      "InputValueType": "D",
+      "InputDataType": "S"
+    },
+    {
+      "name": "District",
+      "value": "{{LocationIdEn}}",
+      "InputType": "R",
+      "InputValueType": "D",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Street",
+      "value": "",
+      "InputType": "R",
+      "InputValueType": "S",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Status",
+      "value": "Open",
+      "InputType": "R",
+      "InputValueType": "S",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Assigned_To",
+      "value": "",
+      "InputType": "R",
+      "InputValueType": "S",
+      "InputDataType": "S"
+    },
+    {
+      "name": "Comments",
+      "value": "",
+      "InputType": "R",
+      "InputValueType": "S",
+      "InputDataType": "S"
+    }
+  ]  
+},
+ "apiOutput": "[{\"ResultFieldTag\": \"status_response\", \"ResultFieldName\": \"status\", \"ParentResultId\": null, \"IsList\": false, \"ListIndex\": 0, \"ListFilter\": null, \"OutputFieldId\": 240, \"DefaultValue\": \"\", \"IsSuccessValidator\": false, \"SuccessValue\": \"\"}, {\"ResultFieldTag\": \"message_reponse\", \"ResultFieldName\": \"message\", \"ParentResultId\": null, \"IsList\": false, \"ListIndex\": 0, \"ListFilter\": null, \"OutputFieldId\": 241, \"DefaultValue\": \"0\", \"IsSuccessValidator\": false, \"SuccessValue\": \"\"}, {\"ResultFieldTag\": \"result_reponse\", \"ResultFieldName\": \"result\", \"ParentResultId\": null, \"IsList\": false, \"ListIndex\": 0, \"ListFilter\": null, \"OutputFieldId\": 242, \"DefaultValue\": \"0\", \"IsSuccessValidator\": false, \"SuccessValue\": \"\"}, {\"ResultFieldTag\": \"incident_no_reponse\", \"ResultFieldName\": \"result\", \"ParentResultId\": \"result_reponse\", \"IsList\": false, \"ListIndex\": 0, \"ListFilter\": null, \"OutputFieldId\": 243, \"DefaultValue\": \"0\", \"IsSuccessValidator\": false, \"SuccessValue\": \"\"}]",
+  "successMessageText":"Incident Created Successfully",
+  "failureMessageText": "Failed to create Incident"
+	},
+	{
+         "apiId":13,
+         "apiDescription":"Create Complaint API - AR",
+         "apiAltDescription":"Create Complaint API - AR",
+         "apiType":1,
+         "serviceURL":"https://v2.automaxsw.com/Stage/Axionic/CCM/API/SMS/Complaints/Save",
+         "methodType":"POST",
+         "securityMode":"A",
+         "inputMediaType":"multipart/form-data",
+         "apiInput":"[{\"FieldName\":\"Channel\",\"InputType\":\"F\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"1\"},{\"FieldName\":\"PhoneNumber\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"CmplntMobileNumberAr\"},{\"FieldName\":\"VoiceNotesName\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"F\",\"InputValue\":\"CmplntCallerNameAr\"},{\"FieldName\":\"VoiceNotesMessage\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"F\",\"InputValue\":\"CmplntDetailsAr\"},{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"Bearer {auth_token}\"}]",
+         "apiOutput":"[{\"ResultFieldTag\":\"status_response\",\"ResultFieldName\":\"status\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"},{\"ResultFieldTag\":\"message_reponse\",\"ResultFieldName\":\"message\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":241,\"DefaultValue\":\"0\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+         "successMessageText":"Complaint Created Successfully",
+         "failureMessageText":"Failed to create Complaint"
+      },
+      {
+         "apiId":16,
+         "apiDescription":"Create Complaint API - EN",
+         "apiAltDescription":"Create Complaint API - EN",
+         "apiType":1,
+         "serviceURL":"https://v2.automaxsw.com/Stage/Axionic/CCM/API/SMS/Complaints/Save",
+         "methodType":"POST",
+         "securityMode":"A",
+         "inputMediaType":"multipart/form-data",
+         "apiInput":"[{\"FieldName\":\"Channel\",\"InputType\":\"F\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"1\"},{\"FieldName\":\"PhoneNumber\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"CmplntMobileNumberEn\"},{\"FieldName\":\"VoiceNotesName\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"F\",\"InputValue\":\"CmplntCallerNameEn\"},{\"FieldName\":\"VoiceNotesMessage\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"F\",\"InputValue\":\"CmplntDetailsEn\"},{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"Bearer {auth_token}\"}]",
+         "apiOutput":"[{\"ResultFieldTag\":\"status_response\",\"ResultFieldName\":\"status\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"},{\"ResultFieldTag\":\"message_reponse\",\"ResultFieldName\":\"message\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":241,\"DefaultValue\":\"0\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+         "successMessageText":"Complaint Created Successfully",
+         "failureMessageText":"Failed to create Complaint"
+      },
+      {
+         "apiId":17,
+         "apiDescription":"Update Agent Evaluation API - AR",
+         "apiAltDescription":"Update Agent Evaluation API - AR",
+         "apiType":1,
+         "serviceURL":"https://v2.automaxsw.com/Stage/Axionic/CCM/API/CLK/IVR/AgentEvaluation",
+         "methodType":"POST",
+         "securityMode":"A",
+         "inputMediaType":"application/json",
+         "apiInput":"[{\"FieldName\":\"CallLogId\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Call_Log_Id\"},{\"FieldName\":\"LoggedUserId\",\"InputType\":\"R\",\"InputValueType\":\"D\",\"InputDataType\":\"B\",\"InputValue\":\"auth_userId\"},{\"FieldName\":\"ExtensionCode\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Receiver_Extension_Code\"},{\"FieldName\":\"EvaluationValue\",\"InputType\":\"R\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"AgentEvalFeedbackAr\"},{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"Bearer {auth_token}\"}]",
+         "apiOutput":"[{\"ResultFieldTag\":\"status_response\",\"ResultFieldName\":\"status\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"},{\"ResultFieldTag\":\"message_reponse\",\"ResultFieldName\":\"message\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":241,\"DefaultValue\":\"0\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+         "successMessageText":"Agent Evaluation Updated Successfully",
+         "failureMessageText":"Failed to update Agent Evaluation"
+      },
+      {
+         "apiId":18,
+         "apiDescription":"Update Agent Evaluation API - EN",
+         "apiAltDescription":"Update Agent Evaluation API - EN",
+         "apiType":1,
+         "serviceURL":"https://v2.automaxsw.com/Stage/Axionic/CCM/API/CLK/IVR/AgentEvaluation",
+         "methodType":"POST",
+         "securityMode":"A",
+         "inputMediaType":"application/json",
+         "apiInput":"[{\"FieldName\":\"CallLogId\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Call_Log_Id\"},{\"FieldName\":\"LoggedUserId\",\"InputType\":\"R\",\"InputValueType\":\"D\",\"InputDataType\":\"B\",\"InputValue\":\"auth_userId\"},{\"FieldName\":\"ExtensionCode\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Receiver_Extension_Code\"},{\"FieldName\":\"EvaluationValue\",\"InputType\":\"R\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"AgentEvalFeedbackEn\"},{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"Bearer {auth_token}\"}]",
+         "apiOutput":"[{\"ResultFieldTag\":\"status_response\",\"ResultFieldName\":\"status\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"},{\"ResultFieldTag\":\"message_reponse\",\"ResultFieldName\":\"message\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":241,\"DefaultValue\":\"0\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+         "successMessageText":"Agent Evaluation Updated Successfully",
+         "failureMessageText":"Failed to update Agent Evaluation"
+      },
+      {
+         "apiId":19,
+         "apiDescription":"Text To Speech API",
+         "apiAltDescription":"Text To Speech API",
+         "apiType":1,
+         "serviceURL":"https://uksouth.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language={Language_Code}",
+         "methodType":"POST",
+         "securityMode":"A",
+         "inputMediaType":"application/json",
+         "apiInput":"[{\"FieldName\":\"Language_Code\",\"InputType\":\"U\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"TTSLanguageCode\"},{\"FieldName\":\"Ocp-Apim-Subscription-Key\",\"InputType\":\"H\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"1cfc10bab7f54e53bb5fad1b6d6dfee4\"},{\"FieldName\":\"tts_engine\",\"InputType\":\"H\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"azure_tts\"},{\"FieldName\":\"tts_voice\",\"InputType\":\"H\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"TTSVoiceNameCloud\"},{\"FieldName\":\"TextData\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"F\",\"InputValue\":\"DefultInput\"}]",
+         "apiOutput":"[{\"ResultFieldTag\":\"ttsaudio_response\",\"ResultFieldName\":\"tts_audio\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+         "successMessageText":"Text converted to Audio Successfully",
+         "failureMessageText":"Failed to convert text to audio"
+      },
+      {
+         "apiId":20,
+         "apiDescription":"Speech To Text API",
+         "apiAltDescription":"Speech To Text API",
+         "apiType":1,
+         "serviceURL":"https://uksouth.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language={Language_Code}",
+         "methodType":"POST",
+         "securityMode":"A",
+         "inputMediaType":"audio/wav",
+         "apiInput":"[{\"FieldName\":\"Language_Code\",\"InputType\":\"U\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"STTLanguageCode\"},{\"FieldName\":\"Ocp-Apim-Subscription-Key\",\"InputType\":\"H\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"1cfc10bab7f54e53bb5fad1b6d6dfee4\"},{\"FieldName\":\"AudioFile\",\"InputType\":\"B\",\"InputValueType\":\"E\",\"InputDataType\":\"F\",\"InputValue\":\"DefultInput\"}]",
+         "apiOutput":"[{\"ResultFieldTag\":\"sttext_response\",\"ResultFieldName\":\"DisplayText\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+         "successMessageText":"Audio converted to Text Successfully",
+         "failureMessageText":"Failed to convert audio to text"
+      }
+   ]
+}

@@ -1,0 +1,16 @@
+<include>
+<user id="1800">
+<params>
+<param name="password" value="CLR1800T"/>
+<param name="vm-password" value="CLR1800T"/>
+</params>
+<variables>
+<variable name="toll_allow" value="domestic,international,local"/>
+<variable name="accountcode" value="1800"/>
+<variable name="effective_caller_id_name" value="Caller_1800"/>
+<variable name="effective_caller_id_number" value="1800"/>
+<variable name="outbound_caller_id_name" value="Caller_1800"/>
+<variable name="outbound_caller_id_number" value="1800"/>
+</variables>
+</user>
+</include>

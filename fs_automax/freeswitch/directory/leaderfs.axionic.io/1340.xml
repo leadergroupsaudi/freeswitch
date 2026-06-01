@@ -1,0 +1,18 @@
+<include>
+<user id="1340">
+<params>
+<param name="password" value="PW1340E"/>
+<param name="vm-password" value="PW1340E"/>
+</params>
+<variables>
+<variable name="toll_allow" value="domestic,international,local"/>
+<variable name="accountcode" value="1340"/>
+<variable name="effective_caller_id_name" value="Caller_1340"/>
+<variable name="effective_caller_id_number" value="1340"/>
+<variable name="outbound_caller_id_name" value="Caller_1340"/>
+<variable name="outbound_caller_id_number" value="1340"/>
+</variables>
+</user>
+</include>
+
+

@@ -1,0 +1,282 @@
+local api = freeswitch.API()
+local json = freeswitch.JSON()
+
+--local uuid = argv[1]
+
+--if not uuid or uuid == "" then
+--    freeswitch.consoleLog("ERR", "Usage: lua hup_both.lua <uuid>\n")
+--    return
+--end
+
+
+
+--local call_id =tostring(session:getVariable("callLogId"));
+local call_uuid =tostring(session:getVariable("UUID"));
+local agent_name = session:getVariable("variable_cc_agent")
+local caller = session:getVariable("caller_id_number")
+local duration = tonumber(session:getVariable("billsec"))
+local hangup_cause = session:getVariable("hangup_cause")
+
+local caller = session:getVariable("caller_id_number")
+local caller2 =session:getVariable("ani")
+
+local callee = session:getVariable("destination_number")
+local agent_uuid = session:getVariable("cc_agent_uuid")
+local callee_joined_at = session:getVariable("answertime")
+local call_status = session:getVariable("call_status")
+freeswitch.consoleLog("INFO", "call_status at: " .. tostring(call_status) .. "\n")
+
+local joined_at = session:getVariable("cc_queue_joined_epoch")
+local terminated_at = session:getVariable("cc_queue_terminated_epoch")
+-- Get the Callee/Destination Number (using common variable names)
+
+local caller_joined_at = tostring(session:getVariable("start_stamp"))
+
+start_at =tostring(caller_joined_at or ""):gsub(" ", "T") .. "Z"
+local participants = tostring(callee) .. "," .. tostring(caller)
+created_by= caller;
+
+freeswitch.consoleLog("INFO", "Participants = " .. participants .. "\n")
+
+local caller_left_at = tostring(session:getVariable("end_stamp"))
+local callee_left_at = tostring(session:getVariable("end_stamp"))
+end_at =tostring(caller_left_at or ""):gsub(" ", "T") .. "Z"
+local callee_number  = tostring(session:getVariable("destination_number"))
+local callee_num2 =session:getVariable("destination_number")
+invited_users ='null'
+--Joined_User=callee_number
+freeswitch.consoleLog("INFO", "billsec at: " .. tostring(duration) .. "\n")
+freeswitch.consoleLog("INFO", "caller_joined_at at: " .. tostring(caller_joined_at) .. "\n")
+freeswitch.consoleLog("INFO", "Caller left at at: " .. tostring(caller_left_at) .. "\n")
+
+local function to_utc_string(epoch)
+    epoch = tonumber(epoch)
+    if not epoch or epoch <= 0 then return "NONE" end
+    if epoch > 9999999999 then epoch = math.floor(epoch / 1000) end
+    return os.date("!%Y-%m-%dT%H:%M:%SZ", epoch)
+end
+-- Convert each timestamp
+--local callee_joined_at = tostring(to_utc_string(answertime))
+--local callee_left_at =tostring( to_utc_string(caller_left_at))
+-- Log results
+if callee_joined_at == nil or callee_joined_at == "" then
+    callee_joined_at = 'null'
+     callee_left_at = 'null'
+     invited_users = callee_number;
+     else
+	     joined_users=callee_number
+end
+--]]
+-- Status logic
+local function safe(value, default)
+  if value == nil or value == '' then
+    return default
+  end
+  return value
+end
+local call_id         = safe(call_id, "unknown")
+local caller          = safe(caller, "unknown")
+--local callee_number   = safe(callee_number, "unknown")
+local caller_left_at   = safe(caller_left_at, "")
+local callee_left_at   = safe(callee_left_at, "")
+local invited_users   = safe(invited_users, "")
+local joined_users    =safe(joined_users, "")
+local status          = safe(status, "UNKNOWN")
+local duration        = tonumber(safe(duration, 0))  -- ensure it's a number
+
+
+--local status, callee_left_at = "UNKNOWN", "", ""
+if hangup_cause == "NO_ANSWER" or hangup_cause == "ORIGINATOR_CANCEL"
+      or hangup_cause == "CALL_REJECTED"
+    or hangup_cause == "CONGESTION" or hangup_cause == "BUSY" then
+    status = "MISSED"
+    billsec = 0
+elseif  hangup_cause == "USER_BUSY" then
+        status ="CLIENT_REJECT"
+elseif hangup_cause == "NORMAL_CLEARING"  and callee_joined_at ~= nil then
+--  if  callee_joined_at  ~= nil then
+        status = "COMPLETED"
+--    else
+--        status = "CLIENT_REJECT"
+--  end
+
+   -- callee_joined_at = caller_joined_at
+   -- callee_left_at = caller_left_at
+else
+    status = "FAILED"
+end
+freeswitch.consoleLog("INFO", "jond_User = " .. tostring(joined_users) .. "\n")
+freeswitch.consoleLog("INFO", "Invited_User = " .. tostring(invited_users) .. "\n")
+freeswitch.consoleLog("INFO", "call_uuid = " .. tostring(call_uuid) .. "\n")
+freeswitch.consoleLog("INFO", "start_at = " .. tostring(start_at) .. "\n")
+freeswitch.consoleLog("INFO", "end_at = " .. tostring(end_at) .. "\n")
+freeswitch.consoleLog("INFO", "status = " .. tostring(status) .. "\n")
+freeswitch.consoleLog("INFO", "created_by = " .. tostring(created_by) .. "\n")
+local part1, part2 = participants:match("([^,]+),([^,]+)")
+part1 = tostring(part1 or "")
+part2 = tostring(part2 or "")
+freeswitch.consoleLog("INFO", "part1 = " .. tostring(part1) .. "\n")
+freeswitch.consoleLog("INFO", "part2 = " .. tostring(part2) .. "\n")
+-- Ensure variables are properly set
+call_uuid     = tostring(call_uuid or "")
+created_by    = tostring(created_by or "")
+call_status   = tostring(call_status or "FAILED")
+start_at      = tostring(start_at or "")
+end_at        = tostring(end_at or "")
+part1         = tostring(part1 or "")
+part2         = tostring(part2 or "")
+
+
+local function parse_csv_to_array(str)
+    if not str or str == "" or str == "null" then
+        return {}
+    end
+    local arr = {}
+    for item in string.gmatch(str, "[^,]+") do
+        local trimmed = item:match("^%s*(.-)%s*$")
+        table.insert(arr, tonumber(trimmed) or trimmed)
+    end
+    return arr
+end
+
+-- Parse participants
+local participants = parse_csv_to_array(participants)
+
+-- Ensure joined_users and invited_users are always arrays (even if empty)
+local joined_users = parse_csv_to_array(joined_users)
+if not joined_users then joined_users = {} end
+
+local invited_users = parse_csv_to_array(invited_users)
+if not invited_users then invited_users = {} end
+
+-- Mark these as arrays explicitly
+joined_users._is_array = true
+invited_users._is_array = true
+
+-- Build participants structure
+local participants = {}
+if part1 then
+    table.insert(participants, {
+        extension = part1,
+        joinedAt = caller_joined_at or start_at,
+        leftAt = caller_left_at or end_at
+    })
+end
+if part2 then
+    table.insert(participants, {
+        extension = part2
+    })
+end
+
+-- Manual JSON encoding (to avoid library issues)
+local function encode_json(data)
+    local function escape_string(str)
+        if not str then return "null" end
+        str = tostring(str)
+        str = string.gsub(str, '\\', '\\\\')
+        str = string.gsub(str, '"', '\\"')
+        str = string.gsub(str, '\n', '\\n')
+        str = string.gsub(str, '\r', '\\r')
+        str = string.gsub(str, '\t', '\\t')
+        return '"' .. str .. '"'
+    end
+    
+    local function encode_array(arr)
+        local parts = {}
+        for _, v in ipairs(arr) do
+            if type(v) == "table" then
+                table.insert(parts, encode_object(v))
+            elseif type(v) == "number" then
+                table.insert(parts, tostring(v))
+            else
+                table.insert(parts, escape_string(v))
+            end
+        end
+        return "[" .. table.concat(parts, ",") .. "]"
+    end
+    
+    local function is_array(tbl)
+        if type(tbl) ~= "table" then return false end
+        -- Check if explicitly marked as array
+        if tbl._is_array then return true end
+        -- Empty table should be array
+        if next(tbl) == nil then return true end
+        -- Check if all keys are sequential numbers
+        local count = 0
+        for _ in pairs(tbl) do count = count + 1 end
+        return count == #tbl
+    end
+    
+    function encode_object(obj)
+        local parts = {}
+        for k, v in pairs(obj) do
+            -- Skip internal marker fields
+            if k ~= "_is_array" then
+                local key = escape_string(k)
+                local value
+                if type(v) == "table" then
+                    if is_array(v) then
+                        value = encode_array(v)
+                    else
+                        value = encode_object(v)
+                    end
+                elseif type(v) == "number" then
+                    value = tostring(v)
+                elseif type(v) == "boolean" then
+                    value = tostring(v)
+                elseif v == nil then
+                    value = "null"
+                else
+                    value = escape_string(v)
+                end
+                table.insert(parts, key .. ":" .. value)
+            end
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+    end
+    
+    return encode_object(data)
+end
+
+-- Build the payload
+local payload = {
+    call_uuid = call_uuid,
+    created_by = created_by,
+    status = call_status,
+    start_at = start_at,
+    end_at = end_at,
+    participants = participants,
+    joined_users = joined_users,
+    invited_users = invited_users
+}
+
+-- Convert to JSON
+local json_payload = encode_json(payload)
+
+freeswitch.consoleLog("INFO", "JSON Payload: " .. json_payload .. "\n")
+
+-- Make HTTP POST request using FreeSWITCH curl
+local api_url = "https://epmstg.automaxsw.com/api/system/call-logs/"
+
+-- Use FreeSWITCH API to make the call with Accept header
+local api = freeswitch.API()
+local curl_cmd = string.format(
+    "%s content-type application/json header 'Accept: application/json' post '%s'",
+    api_url,
+    json_payload
+)
+
+freeswitch.consoleLog("INFO", "Final curl cmd: " .. curl_cmd .. "\n")
+
+local response = api:executeString("curl " .. curl_cmd)
+
+freeswitch.consoleLog("INFO", "API Response: " .. tostring(response) .. "\n")
+
+-- Check response
+if response and response ~= "" then
+    freeswitch.consoleLog("INFO", "Call log API request successful\n")
+    freeswitch.consoleLog("INFO", "Response body: " .. response .. "\n")
+else
+    freeswitch.consoleLog("WARNING", "Call log API returned empty response\n")
+end
+
