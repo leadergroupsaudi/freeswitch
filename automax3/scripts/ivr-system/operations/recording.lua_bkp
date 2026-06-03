@@ -1,0 +1,361 @@
+--------------------------------------------------------------------------------
+-- Recording Operations Module
+--
+-- Handles all recording related operations including:
+-- - Operation 40: Record caller message
+-- - Operation 341: Speech-to-text (record and convert to text)
+--
+-- Usage:
+--   Called automatically by the operation dispatcher
+--   local recording = require "operations.recording"
+--   recording.execute(40, node_data)
+--
+-- Author: IVR System Team
+-- Version: 2.0.0
+--------------------------------------------------------------------------------
+local M = {}
+
+-- Load dependencies
+local session_manager = require "core.session_manager"
+local call_flow = require "core.call_flow"
+local config = require "config"
+local logging = require "utils.logging"
+local string_utils = require "utils.string_utils"
+local json_utils = require "utils.json_utils"
+
+-- Module logger
+local logger = logging.get_logger("operations.recording")
+
+-- Get recording directory from FreeSWITCH globals
+local function get_recording_dir()
+    local recordings_dir = freeswitch.getGlobalVariable("recordings_dir")
+    return recordings_dir .. "/IVR-CCM-Recordings/"
+end
+
+--------------------------------------------------------------------------------
+-- Execute Recording Operation
+--
+-- Main entry point for all recording operations. Routes to specific handlers
+-- based on operation code.
+--
+-- @param operation_code number - The operation code (40, 341)
+-- @param node_data table - The IVR node configuration data
+-- @return void
+--------------------------------------------------------------------------------
+function M.execute(operation_code, node_data)
+    logger:info(string.format("Executing recording operation %d for node %d", operation_code, node_data.NodeId))
+
+    -- Route to appropriate handler
+    if operation_code == 40 then
+        M.record_message(node_data)
+    elseif operation_code == 341 then
+        M.speech_to_text(node_data)
+    else
+        error(string.format("Unknown recording operation code: %d", operation_code))
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Helper: Check if WAV file has sound activity
+--
+-- Uses sox to analyze the WAV file and determine if it contains
+-- actual voice/sound content based on RMS amplitude.
+--
+-- @param wav_file_path string - Path to the WAV file
+-- @return boolean - True if file has sound activity
+--------------------------------------------------------------------------------
+local function has_sound_activity(wav_file_path)
+    -- Build sox command to get RMS amplitude
+    local cmd = string.format("sox %s -n stat 2>&1 | grep -i 'RMS     amplitude' | awk '{print $3}'",
+        string_utils.shell_escape(wav_file_path))
+
+    logger:debug("Sox command: " .. cmd)
+
+    local handle = io.popen(cmd)
+    local result = handle:read("*a")
+    handle:close()
+
+    -- Check if result is valid
+    if result and tonumber(result) then
+        local amplitude = tonumber(result)
+        local threshold = 0.001 -- Minimum amplitude threshold
+
+        logger:debug(string.format("Sox RMS amplitude: %f (threshold: %f)", amplitude, threshold))
+
+        return amplitude >= threshold
+    end
+
+    return false
+end
+
+--------------------------------------------------------------------------------
+-- Operation 40: Record Message
+--
+-- Records audio from the caller and saves it to a file. Validates that
+-- the recording contains actual voice content.
+--
+-- Node Data Requirements:
+-- - RecordingTypeId: ID to look up recording configuration
+-- - InputTimeLimit: Silence timeout in seconds (optional)
+-- - TagName: Session variable to store the recording path
+--
+-- @param node_data table - The IVR node configuration data
+-- @return void
+--------------------------------------------------------------------------------
+function M.record_message(node_data)
+    logger:info(string.format("Operation 40: Recording message for node %d", node_data.NodeId))
+
+    -- Get the FreeSWITCH session
+    local session = session_manager.get_freeswitch_session()
+
+    if not session or not session:ready() then
+        logger:error("Session is not ready")
+        return
+    end
+
+    -- Get call UUID for unique filename
+    local call_uuid = session:getVariable("uuid")
+
+    -- Get recording configuration
+    local recording_config = config.get_recording_config()
+    local recording_type_id = node_data.RecordingTypeId
+
+    local record_time_limit = 60 -- Default 60 seconds
+    local record_filename_prefix = "recording"
+
+    -- Find recording type configuration
+    if recording_config and recording_config.RecordingType then
+        for _, record_data in pairs(recording_config.RecordingType) do
+            if record_data.RecordingTypeId == recording_type_id then
+                logger:debug("Found recording type configuration")
+                record_time_limit = record_data.RecordTimeLimit or record_time_limit
+                record_filename_prefix = record_data.TypePrefix or record_filename_prefix
+                break
+            end
+        end
+    end
+freeswitch.consoleLog("INFO", "Recording Config: " .. tostring(recording_config) .. "\n")
+freeswitch.consoleLog("INFO", "Recording Type ID: " .. tostring(recording_type_id) .. "\n")
+    -- Build recording filename
+    local record_filename = string.format("%s_%s.wav", record_filename_prefix, call_uuid)
+
+    local recording_dir = get_recording_dir()
+    local recording_path = recording_dir .. record_filename
+
+    -- Recording parameters
+    local silence_hits = node_data.InputTimeLimit or 5
+    local silence_threshold = 200
+
+    logger:info(string.format("Recording config - TimeLimit: %d sec, Silence: %d sec, File: %s", record_time_limit,
+        silence_hits, recording_path))
+
+    -- Set playback terminators
+    session:execute("export", "nolocal:playback_terminators=#")
+
+    -- Start recording
+    local record_cmd = string.format("%s %d %d %d", recording_path, record_time_limit, silence_threshold, silence_hits)
+
+    logger:debug("Recording command: " .. record_cmd)
+    session:execute("record", record_cmd)
+
+    -- Validate recording has sound
+    if has_sound_activity(recording_path) then
+        logger:info("Recording contains voice/sound content")
+
+        -- Store recording path in session variable
+        if node_data.TagName then
+            session_manager.set_variable(node_data.TagName, recording_path)
+            logger:debug(string.format("Stored recording path in variable: %s = %s", node_data.TagName, recording_path))
+        end
+
+        -- Navigate to success child node
+        call_flow.find_child_node_with_dtmf_input("S", node_data)
+    else
+        logger:warning("Recording does not contain voice/sound content")
+
+        -- Navigate to failure/empty child node
+        call_flow.find_child_node_with_dtmf_input("D", node_data)
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Operation 341: Speech to Text
+--
+-- Takes an audio recording and converts it to text using a speech-to-text
+-- API service.
+--
+-- Node Data Requirements:
+-- - DeafultInput: Session variable containing the audio file path
+-- - InputType: If 40, sets DefultInput variable
+-- - TagName: Session variable to store the transcribed text
+--
+-- @param node_data table - The IVR node configuration data
+-- @return void
+--------------------------------------------------------------------------------
+function M.speech_to_text(node_data)
+    logger:info(string.format("Operation 341: Speech-to-text for node %d", node_data.NodeId))
+
+    -- Get the FreeSWITCH session
+    local session = session_manager.get_freeswitch_session()
+
+    if not session or not session:ready() then
+        logger:error("Session is not ready")
+        return
+    end
+
+    -- Get audio file path from session variable
+    local audio_file = session_manager.get_variable(node_data.DeafultInput)
+
+    if not audio_file or audio_file == "" then
+        logger:error("No audio file specified for speech-to-text")
+        call_flow.find_child_node_with_dtmf_input("F", node_data)
+        return
+    end
+
+    -- Handle InputType 40 (recording reference)
+    if node_data.InputType == 40 then
+        session_manager.set_variable("DefultInput", audio_file)
+    end
+
+    logger:info("Audio file to convert: " .. audio_file)
+
+    -- Get language code
+    local language_code = session_manager.get_variable("TTSLanguageCode") or "en-US"
+    logger:debug("Language code: " .. language_code)
+
+    -- Get API configuration for speech-to-text (API ID 20)
+    local web_api_data = config.get_webapi_endpoints()
+    local api_id = 20
+    local method_type, content_type, service_url, api_input_data, api_output
+
+    if web_api_data then
+        for _, api in pairs(web_api_data) do
+            if api.apiId == api_id then
+                logger:debug("Found STT API configuration")
+                method_type = api.methodType
+                content_type = api.inputMediaType
+                service_url = api.serviceURL
+                api_input_data = api.apiInput
+                api_output = api.apiOutput
+                break
+            end
+        end
+    end
+
+    if not service_url then
+        logger:error("Speech-to-text API not configured")
+        call_flow.find_child_node_with_dtmf_input("F", node_data)
+        return
+    end
+
+    -- Build and execute API call
+    -- Note: This requires the services/http_client module for full implementation
+    logger:info("Calling speech-to-text API...")
+
+    -- For now, use curl directly (similar to original implementation)
+    local json = require "utils.json_utils"
+
+    -- Get access token if needed
+    local access_token = session_manager.get_variable("azure_subscription_key")
+    if access_token then
+        access_token = access_token:gsub('^"(.*)"$', '%1')
+    end
+
+    -- Build curl command for audio/wav content type
+    local curl_cmd
+    if content_type == "audio/wav" then
+        curl_cmd = string.format("curl -s -w '+%%{http_code}' -X %s -H 'Ocp-Apim-Subscription-Key: %s'" ..
+                                     " -H 'Content-Type: %s' --data-binary @%s '%s'", method_type or "POST",
+            access_token or "", content_type, string_utils.shell_escape(audio_file),
+            service_url .. "?language=" .. language_code)
+    else
+        logger:error("Unsupported content type for STT: " .. tostring(content_type))
+        call_flow.find_child_node_with_dtmf_input("F", node_data)
+        return
+    end
+
+    logger:debug("STT API command: " .. curl_cmd)
+    logger:info("STT API command: " .. curl_cmd)
+
+    -- Execute API call
+    local handle = io.popen(curl_cmd)
+    local api_response = handle:read("*a")
+    handle:close()
+
+    logger:debug("STT API response: " .. tostring(api_response))
+
+    -- Parse response
+    local end_index = string.find(api_response, '+')
+    local input_keys = "F"
+
+    if end_index then
+        local response_code = tonumber(string.sub(api_response, end_index + 1))
+        local response_body = string.sub(api_response, 1, end_index - 1)
+
+        if response_code and response_code >= 200 and response_code < 300 then
+            logger:info("STT API call successful")
+
+            -- Parse response and extract text
+            local success, parsed = json.decode(response_body)
+            if success and parsed then
+                local encode_success, parsed_json = json_utils.encode(parsed)
+                if encode_success then
+                    logger:info("STT API parsed response: " .. parsed_json)
+                end
+            else
+                logger:error("Failed to parse STT response: " .. tostring(parsed))
+            end
+            if success and parsed then
+                -- Get general settings for STT configuration
+                local general_settings = config.get_general_settings()
+
+                if general_settings then
+                    for _, settings in pairs(general_settings) do
+                        if settings.SettingId == 14 then
+                            -- local stt_settings = json.decode(settings.SettingValue)
+                            local success, stt_settings = json_utils.decode(settings.SettingValue)
+                            if not success then
+                                logger:error(string.format("Failed to parse stt settings JSON: %s",
+                                    tostring(stt_settings)))
+                            end
+                            local encode_success, stt_json = json_utils.encode(stt_settings)
+                            if encode_success then
+                                logger:info("STT Settings: " .. stt_json)
+                            else
+                                logger:error("Failed to encode STT settings: " .. tostring(stt_json))
+                            end
+                            -- Store the STT DisplayText result in session variables
+                            if parsed and parsed.DisplayText then
+                                local display_text = parsed.DisplayText
+
+                                -- Store in the configured STT response variable
+                                if stt_settings and stt_settings.TextResponseFieldTag then
+                                    session_manager.set_variable(stt_settings.TextResponseFieldTag, display_text)
+                                    logger:info("Stored STT result in " .. stt_settings.TextResponseFieldTag .. ": " .. display_text)
+                                end
+
+                                -- Also store in node TagName if specified
+                                if node_data.TagName then
+                                    session_manager.set_variable(node_data.TagName, display_text)
+                                    logger:info("Stored STT result in " .. node_data.TagName .. ": " .. display_text)
+                                end
+                            else
+                                logger:warning("STT response missing DisplayText field")
+                            end
+                            break
+                        end
+                    end
+                end
+
+                input_keys = "S"
+            end
+        else
+            logger:warning("STT API call failed with code: " .. tostring(response_code))
+        end
+    end
+
+    -- Navigate to child node based on result
+    call_flow.find_child_node_with_dtmf_input(input_keys, node_data)
+end
+
+return M

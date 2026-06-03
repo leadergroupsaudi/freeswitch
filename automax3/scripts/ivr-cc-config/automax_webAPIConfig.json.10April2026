@@ -1,0 +1,969 @@
+{
+  "status": "SUCCESS",
+  "message": "Web API information is fetched successfully",
+  "result": [
+    {
+      "apiId": 10,
+      "apiDescription": "Authentication API",
+      "apiAltDescription": "Authentication API",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/auth/login",
+      "methodType": "POST",
+      "securityMode": "N",
+      "inputMediaType": "application/json",
+      "apiInput": "[{\"FieldName\":\"email\",\"InputType\":\"R\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"admin@automax.com\"},{\"FieldName\":\"password\",\"InputType\":\"R\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"admin123\"}]",
+      "apiOutput": "[{\"ResultFieldTag\":\"Access_token\",\"ResultFieldName\":\"token\",\"ParentResultId\":\"data\",\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":1,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"},{\"ResultFieldTag\":\"success_response\",\"ResultFieldName\":\"success\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":2,\"DefaultValue\":\"false\",\"IsSuccessValidator\":true,\"SuccessValue\":\"true\"}]",
+      "successMessageText": "Authentication is Success",
+      "failureMessageText": "Authentication is Failed"
+    },
+    {
+      "apiId": 11,
+      "apiDescription": "Create Incident API - AR",
+      "apiAltDescription": "Create Incident API - AR",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/incidents",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{Access_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "title",
+            "value": "{{IncidentTitleTextAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "description",
+            "value": "{{IncidentDetailsTextAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "Incident details provided via IVR audio recording. Please listen to the attached audio file for details."
+          },
+          {
+            "name": "classification_id",
+            "value": "{{SelectedClassificationIdAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "2daccf67-ef54-408d-be25-1ec3afabc8c3"
+          },
+          {
+            "name": "workflow_id",
+            "value": "{{WorkflowIdAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "priority",
+            "value": "3",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "N"
+          },
+          {
+            "name": "severity",
+            "value": "3",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "N"
+          },
+          {
+            "name": "department_id",
+            "value": "1e468b53-e5b3-4744-8abb-02102509e1fd",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "location_id",
+            "value": "{{SelectedLocationIdAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "27fb9b0e-00bf-4c59-8c36-a8f716f7ae7e"
+          },
+          {
+            "name": "reporter_name",
+            "value": "{{CallerNameTextAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "IVR Caller"
+          }
+        ]
+      },
+      "apiOutput": [
+        {
+          "ResultFieldTag": "success_response",
+          "ResultFieldName": "success",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 240,
+          "DefaultValue": "false",
+          "IsSuccessValidator": true,
+          "SuccessValue": "true"
+        },
+        {
+          "ResultFieldTag": "message_response",
+          "ResultFieldName": "message",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 241,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "incident_no_response",
+          "ResultFieldName": "id",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 242,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "ticket_number_response",
+          "ResultFieldName": "ticket_number",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 243,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "incident_no_reponse",
+          "ResultFieldName": "incident_number",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 244,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        }
+      ],
+      "successMessageText": "Incident Created Successfully",
+      "failureMessageText": "Failed to create Incident"
+    },
+    {
+      "apiId": 12,
+      "apiDescription": "Create Incident API - EN",
+      "apiAltDescription": "Create Incident API - EN",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/incidents",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{Access_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "title",
+            "value": "{{IncidentTitleTextEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "description",
+            "value": "{{IncidentDetailsTextEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "Incident details provided via IVR audio recording. Please listen to the attached audio file for details."
+          },
+          {
+            "name": "classification_id",
+            "value": "{{SelectedClassificationIdEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "2daccf67-ef54-408d-be25-1ec3afabc8c3"
+          },
+          {
+            "name": "workflow_id",
+            "value": "{{WorkflowIdEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "priority",
+            "value": "3",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "N"
+          },
+          {
+            "name": "severity",
+            "value": "3",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "N"
+          },
+          {
+            "name": "department_id",
+            "value": "1e468b53-e5b3-4744-8abb-02102509e1fd",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "location_id",
+            "value": "{{SelectedLocationIdEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "27fb9b0e-00bf-4c59-8c36-a8f716f7ae7e"
+          },
+          {
+            "name": "reporter_name",
+            "value": "{{CallerNameTextEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "IVR Caller"
+          }
+        ]
+      },
+      "apiOutput": [
+        {
+          "ResultFieldTag": "success_response",
+          "ResultFieldName": "success",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 240,
+          "DefaultValue": "false",
+          "IsSuccessValidator": true,
+          "SuccessValue": "true"
+        },
+        {
+          "ResultFieldTag": "message_response",
+          "ResultFieldName": "message",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 241,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "incident_no_response",
+          "ResultFieldName": "id",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 242,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "ticket_number_response",
+          "ResultFieldName": "ticket_number",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 243,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "incident_no_reponse",
+          "ResultFieldName": "incident_number",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 244,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        }
+      ],
+      "successMessageText": "Incident Created Successfully",
+      "failureMessageText": "Failed to create Incident"
+    },
+    {
+      "apiId": 21,
+      "apiDescription": "Get Classifications API",
+      "apiAltDescription": "Get Classifications API",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/admin/classifications",
+      "methodType": "GET",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{Access_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          }
+        ]
+      },
+      "apiOutput": "[{\"ResultFieldTag\":\"classifications_response\",\"ResultFieldName\":\"data\",\"ParentResultId\":null,\"IsList\":true,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":250,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+      "successMessageText": "Classifications fetched successfully",
+      "failureMessageText": "Failed to fetch classifications"
+    },
+    {
+      "apiId": 22,
+      "apiDescription": "Get Locations API",
+      "apiAltDescription": "Get Locations API",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/admin/locations",
+      "methodType": "GET",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{Access_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          }
+        ]
+      },
+      "apiOutput": "[{\"ResultFieldTag\":\"locations_response\",\"ResultFieldName\":\"data\",\"ParentResultId\":null,\"IsList\":true,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":251,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+      "successMessageText": "Locations fetched successfully",
+      "failureMessageText": "Failed to fetch locations"
+    },
+    {
+      "apiId": 13,
+      "apiDescription": "Create Complaint API - AR",
+      "apiAltDescription": "Create Complaint API - AR",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/complaints",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{Access_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "title",
+            "value": "{{ComplaintTitleTextAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "description",
+            "value": "{{ComplaintDetailsTextAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "Complaint details provided via IVR audio recording. Please listen to the attached audio file for details."
+          },
+          {
+            "name": "classification_id",
+            "value": "{{ClassificationIdAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "6f2c826b-46a4-4d96-bfbc-7d60b2602872"
+          },
+          {
+            "name": "workflow_id",
+            "value": "{{WorkflowIdAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "ed0d2140-3db3-40ab-a609-baa7b415657e"
+          }
+        ]
+      },
+      "apiOutput": [
+        {
+          "ResultFieldTag": "success_response",
+          "ResultFieldName": "success",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 240,
+          "DefaultValue": "false",
+          "IsSuccessValidator": true,
+          "SuccessValue": "true"
+        },
+        {
+          "ResultFieldTag": "message_response",
+          "ResultFieldName": "message",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 241,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "complaint_id_response",
+          "ResultFieldName": "id",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 242,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "complaint_number_response",
+          "ResultFieldName": "complaint_number",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 243,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        }
+      ],
+      "successMessageText": "Complaint Created Successfully",
+      "failureMessageText": "Failed to create Complaint"
+    },
+    {
+      "apiId": 16,
+      "apiDescription": "Create Complaint API - EN",
+      "apiAltDescription": "Create Complaint API - EN",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/complaints",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{Access_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "title",
+            "value": "{{ComplaintTitleTextEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "description",
+            "value": "{{ComplaintDetailsTextEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "Complaint details provided via IVR audio recording. Please listen to the attached audio file for details."
+          },
+          {
+            "name": "classification_id",
+            "value": "{{ClassificationIdEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "6f2c826b-46a4-4d96-bfbc-7d60b2602872"
+          },
+          {
+            "name": "workflow_id",
+            "value": "{{WorkflowIdEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "ed0d2140-3db3-40ab-a609-baa7b415657e"
+          }
+        ]
+      },
+      "apiOutput": [
+        {
+          "ResultFieldTag": "success_response",
+          "ResultFieldName": "success",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 240,
+          "DefaultValue": "false",
+          "IsSuccessValidator": true,
+          "SuccessValue": "true"
+        },
+        {
+          "ResultFieldTag": "message_response",
+          "ResultFieldName": "message",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 241,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "complaint_id_response",
+          "ResultFieldName": "id",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 242,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        },
+        {
+          "ResultFieldTag": "complaint_number_response",
+          "ResultFieldName": "complaint_number",
+          "ParentResultId": "data",
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 243,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        }
+      ],
+      "successMessageText": "Complaint Created Successfully",
+      "failureMessageText": "Failed to create Complaint"
+    },
+    {
+      "apiId": 17,
+      "apiDescription": "Update Agent Evaluation API - AR",
+      "apiAltDescription": "Update Agent Evaluation API - AR",
+      "apiType": 1,
+      "serviceURL": "https://v2.automaxsw.com/Stage/Axionic/CCM/API/CLK/IVR/AgentEvaluation",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": "[{\"FieldName\":\"CallLogId\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Call_Log_Id\"},{\"FieldName\":\"LoggedUserId\",\"InputType\":\"R\",\"InputValueType\":\"D\",\"InputDataType\":\"B\",\"InputValue\":\"auth_userId\"},{\"FieldName\":\"ExtensionCode\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Receiver_Extension_Code\"},{\"FieldName\":\"EvaluationValue\",\"InputType\":\"R\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"AgentEvalFeedbackAr\"},{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"Bearer {auth_token}\"}]",
+      "apiOutput": "[{\"ResultFieldTag\":\"status_response\",\"ResultFieldName\":\"status\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"},{\"ResultFieldTag\":\"message_reponse\",\"ResultFieldName\":\"message\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":241,\"DefaultValue\":\"0\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+      "successMessageText": "Agent Evaluation Updated Successfully",
+      "failureMessageText": "Failed to update Agent Evaluation"
+    },
+    {
+      "apiId": 18,
+      "apiDescription": "Update Agent Evaluation API - EN",
+      "apiAltDescription": "Update Agent Evaluation API - EN",
+      "apiType": 1,
+      "serviceURL": "https://v2.automaxsw.com/Stage/Axionic/CCM/API/CLK/IVR/AgentEvaluation",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": "[{\"FieldName\":\"CallLogId\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Call_Log_Id\"},{\"FieldName\":\"LoggedUserId\",\"InputType\":\"R\",\"InputValueType\":\"D\",\"InputDataType\":\"B\",\"InputValue\":\"auth_userId\"},{\"FieldName\":\"ExtensionCode\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"Receiver_Extension_Code\"},{\"FieldName\":\"EvaluationValue\",\"InputType\":\"R\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"AgentEvalFeedbackEn\"},{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"Bearer {auth_token}\"}]",
+      "apiOutput": "[{\"ResultFieldTag\":\"status_response\",\"ResultFieldName\":\"status\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"},{\"ResultFieldTag\":\"message_reponse\",\"ResultFieldName\":\"message\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":241,\"DefaultValue\":\"0\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+      "successMessageText": "Agent Evaluation Updated Successfully",
+      "failureMessageText": "Failed to update Agent Evaluation"
+    },
+    {
+      "apiId": 19,
+      "apiDescription": "Text To Speech API",
+      "apiAltDescription": "Text To Speech API",
+      "apiType": 1,
+      "serviceURL": "https://uksouth.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": "[{\"FieldName\":\"Language_Code\",\"InputType\":\"U\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"TTSLanguageCode\"},{\"FieldName\":\"Ocp-Apim-Subscription-Key\",\"InputType\":\"H\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"1cfc10bab7f54e53bb5fad1b6d6dfee4\"},{\"FieldName\":\"tts_engine\",\"InputType\":\"H\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"azure_tts\"},{\"FieldName\":\"tts_voice\",\"InputType\":\"H\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"TTSVoiceNameCloud\"},{\"FieldName\":\"TextData\",\"InputType\":\"R\",\"InputValueType\":\"E\",\"InputDataType\":\"F\",\"InputValue\":\"DefultInput\"}]",
+      "apiOutput": "[{\"ResultFieldTag\":\"ttsaudio_response\",\"ResultFieldName\":\"tts_audio\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+      "successMessageText": "Text converted to Audio Successfully",
+      "failureMessageText": "Failed to convert text to audio"
+    },
+    {
+      "apiId": 20,
+      "apiDescription": "Speech To Text API",
+      "apiAltDescription": "Speech To Text API",
+      "apiType": 1,
+      "serviceURL": "https://uksouth.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "audio/wav",
+      "apiInput": "[{\"FieldName\":\"Language_Code\",\"InputType\":\"U\",\"InputValueType\":\"E\",\"InputDataType\":\"S\",\"InputValue\":\"STTLanguageCode\"},{\"FieldName\":\"Ocp-Apim-Subscription-Key\",\"InputType\":\"H\",\"InputValueType\":\"S\",\"InputDataType\":\"S\",\"InputValue\":\"1cfc10bab7f54e53bb5fad1b6d6dfee4\"},{\"FieldName\":\"AudioFile\",\"InputType\":\"B\",\"InputValueType\":\"E\",\"InputDataType\":\"F\",\"InputValue\":\"DefultInput\"}]",
+      "apiOutput": "[{\"ResultFieldTag\":\"sttext_response\",\"ResultFieldName\":\"DisplayText\",\"ParentResultId\":null,\"IsList\":false,\"ListIndex\":0,\"ListFilter\":null,\"OutputFieldId\":240,\"DefaultValue\":\"\",\"IsSuccessValidator\":false,\"SuccessValue\":\"\"}]",
+      "successMessageText": "Audio converted to Text Successfully",
+      "failureMessageText": "Failed to convert audio to text"
+    },
+    {
+      "apiId": 23,
+      "apiDescription": "Upload Incident Attachment",
+      "apiAltDescription": "Upload Incident Attachment",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/incidents/{incident_id}/attachments",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "multipart/form-data",
+      "apiInput": "[{\"FieldName\":\"incident_id\",\"InputType\":\"U\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"incident_no_response\"},{\"FieldName\":\"file\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"F\",\"InputValue\":\"recording_file_path\"},{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"Bearer {{Access_token}}\"}]",
+      "apiOutput": "[]",
+      "successMessageText": "Attachment uploaded successfully",
+      "failureMessageText": "Failed to upload attachment"
+    },
+    {
+      "apiId": 24,
+      "apiDescription": "Upload Complaint Attachment - AR",
+      "apiAltDescription": "Upload Complaint Attachment - AR",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/complaints/{complaint_id}/attachments",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "multipart/form-data",
+      "apiInput": "[{\"FieldName\":\"complaint_id\",\"InputType\":\"U\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"complaint_id_response\"},{\"FieldName\":\"file\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"F\",\"InputValue\":\"CmplntDetailsAr\"},{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"Bearer {{Access_token}}\"}]",
+      "apiOutput": "[]",
+      "successMessageText": "Complaint attachment uploaded successfully",
+      "failureMessageText": "Failed to upload complaint attachment"
+    },
+    {
+      "apiId": 25,
+      "apiDescription": "Upload Complaint Attachment - EN",
+      "apiAltDescription": "Upload Complaint Attachment - EN",
+      "apiType": 1,
+      "serviceURL": "https://ax3.automaxsw.com/api/v1/complaints/{complaint_id}/attachments",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "multipart/form-data",
+      "apiInput": "[{\"FieldName\":\"complaint_id\",\"InputType\":\"U\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"complaint_id_response\"},{\"FieldName\":\"file\",\"InputType\":\"F\",\"InputValueType\":\"D\",\"InputDataType\":\"F\",\"InputValue\":\"CmplntDetailsEn\"},{\"FieldName\":\"Authorization\",\"InputType\":\"H\",\"InputValueType\":\"D\",\"InputDataType\":\"S\",\"InputValue\":\"Bearer {{Access_token}}\"}]",
+      "apiOutput": "[]",
+      "successMessageText": "Complaint attachment uploaded successfully",
+      "failureMessageText": "Failed to upload complaint attachment"
+    },
+    {
+      "apiId": 26,
+      "apiDescription": "Send SMS Notification - EN",
+      "apiAltDescription": "Send SMS Notification - EN",
+      "apiType": 1,
+      "serviceURL": "https://epmstg.automaxsw.com/api/v1/notifications/send",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{Access_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "channel",
+            "value": "sms",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "language",
+            "value": "en",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "to",
+            "value": "{{MobileNumberEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "A",
+            "DefaultValue":"917376675898"
+          },
+          {
+            "name": "subject",
+            "value": "",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "body",
+            "value": "Your incident has been submitted. We will follow up via this number.",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          }
+        ]
+      },
+      "apiOutput": [
+        {
+          "ResultFieldTag": "sms_success_response",
+          "ResultFieldName": "success",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 260,
+          "DefaultValue": "false",
+          "IsSuccessValidator": true,
+          "SuccessValue": "true"
+        }
+      ],
+      "successMessageText": "SMS notification sent successfully",
+      "failureMessageText": "Failed to send SMS notification"
+    },
+    {
+      "apiId": 27,
+      "apiDescription": "Send SMS Notification - AR",
+      "apiAltDescription": "Send SMS Notification - AR",
+      "apiType": 1,
+      "serviceURL": "https://epmstg.automaxsw.com/api/v1/notifications/send",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{Access_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "channel",
+            "value": "sms",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "language",
+            "value": "ar",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "to",
+            "value": "{{MobileNumberAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "A"
+          },
+          {
+            "name": "subject",
+            "value": "",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "body",
+            "value": "لقد تم تقديم بلاغك. سنتابع معك على هذا الرقم.",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          }
+        ]
+      },
+      "apiOutput": [
+        {
+          "ResultFieldTag": "sms_success_response",
+          "ResultFieldName": "success",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 261,
+          "DefaultValue": "false",
+          "IsSuccessValidator": true,
+          "SuccessValue": "true"
+        }
+      ],
+      "successMessageText": "SMS notification sent successfully",
+      "failureMessageText": "Failed to send SMS notification"
+    },
+    {
+      "apiId": 28,
+      "apiDescription": "Send WhatsApp Notification - EN",
+      "apiAltDescription": "Send WhatsApp Notification - EN",
+      "apiType": 1,
+      "serviceURL": "https://graph.facebook.com/v24.0/779437325263607/messages",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{WhatsApp_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "messaging_product",
+            "value": "whatsapp",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "recipient_type",
+            "value": "individual",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "to",
+            "value": "{{MobileNumberEn}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "917376675898"
+          },
+          {
+            "name": "type",
+            "value": "text",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "text_body",
+            "value": "Your incident has been submitted successfully. Our team will contact you shortly.",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          }
+        ]
+      },
+      "apiOutput": [
+        {
+          "ResultFieldTag": "whatsapp_message_id",
+          "ResultFieldName": "id",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 262,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        }
+      ],
+      "successMessageText": "WhatsApp notification sent successfully",
+      "failureMessageText": "Failed to send WhatsApp notification"
+    },
+    {
+      "apiId": 29,
+      "apiDescription": "Send WhatsApp Notification - AR",
+      "apiAltDescription": "Send WhatsApp Notification - AR",
+      "apiType": 1,
+      "serviceURL": "https://graph.facebook.com/v24.0/779437325263607/messages",
+      "methodType": "POST",
+      "securityMode": "A",
+      "inputMediaType": "application/json",
+      "apiInput": {
+        "values": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{WhatsApp_token}}",
+            "InputType": "H",
+            "InputValueType": "D",
+            "InputDataType": "S"
+          },
+          {
+            "name": "messaging_product",
+            "value": "whatsapp",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "recipient_type",
+            "value": "individual",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "to",
+            "value": "{{MobileNumberAr}}",
+            "InputType": "R",
+            "InputValueType": "D",
+            "InputDataType": "S",
+            "DefaultValue": "917376675898"
+          },
+          {
+            "name": "type",
+            "value": "text",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          },
+          {
+            "name": "text_body",
+            "value": "لقد تم تقديم بلاغك بنجاح. سيتواصل معك فريقنا قريبًا.",
+            "InputType": "R",
+            "InputValueType": "S",
+            "InputDataType": "S"
+          }
+        ]
+      },
+      "apiOutput": [
+        {
+          "ResultFieldTag": "whatsapp_message_id",
+          "ResultFieldName": "id",
+          "ParentResultId": null,
+          "IsList": false,
+          "ListIndex": 0,
+          "ListFilter": null,
+          "OutputFieldId": 263,
+          "DefaultValue": "",
+          "IsSuccessValidator": false,
+          "SuccessValue": ""
+        }
+      ],
+      "successMessageText": "WhatsApp notification sent successfully",
+      "failureMessageText": "Failed to send WhatsApp notification"
+    }
+  ]
+}

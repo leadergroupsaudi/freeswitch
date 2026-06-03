@@ -1,0 +1,178 @@
+local script_dir = freeswitch.getGlobalVariable("script_dir")
+local api_client = dofile(script_dir .. "/api_client.lua")
+
+
+
+local api = freeswitch.API()
+local json = freeswitch.JSON()
+local json = require "lunajson"
+local http = require("socket.http")
+local ltn12 = require("ltn12")
+
+local uuid = tostring(argv[1])
+local ext = tostring(argv[2])
+ext= "1002"
+freeswitch.consoleLog("INFO", "EXT = " .. tostring(ext) .. "\n")
+freeswitch.consoleLog("INFO", "UUID = " .. tostring(uuid) .. "\n")
+local created_by = session:getVariable("caller_id_number")
+freeswitch.consoleLog("INFO", "created_by = " .. tostring(created_by) .. "\n")
+local status = in_call
+local invited_users =ext
+local time = os.date( "%Y-%m-%d %H:%M:%S");
+cmd="uuid_setvar      "..tostring(uuid).."      ".."start_at".."             "..tostring(time)
+freeswitch.consoleLog("NOTICE","Notification cmd " .. tostring(cmd) .. " ...\n")
+a=api:executeString(cmd)
+freeswitch.consoleLog("INFO", "start_at = " .. tostring(time) .. "\n")
+freeswitch.consoleLog("INFO", "invited_users = " .. tostring(invited_users) .. "\n")
+-- 1) CHECK REGISTRATION
+local contact_status = api:executeString("sofia_contact " .. ext)
+
+local is_registered = true
+if string.match(contact_status, "error/user_not_registered") then
+    is_registered = false
+end
+
+-- 2) CHECK ACTIVE CALL
+local channel_info = api:executeString("show channels like " .. ext)
+local in_call = false
+
+if string.find(channel_info, ext) then
+    in_call = true
+end
+
+-- 3) DETERMINE STATUS
+local call_status = ""
+
+if not is_registered then
+    call_status = "offline"
+elseif in_call then
+    call_status = "in_call"
+else
+    call_status = "available"
+end
+
+-- 4) UPDATE UUID VARIABLE
+local cmd = "uuid_setvar " .. uuid .. " call_status " .. call_status
+freeswitch.consoleLog("NOTICE", "Notification cmd: " .. cmd .. "\n")
+local a = api:executeString(cmd)
+
+-- 5) PRINT RESULT (FIXED)
+freeswitch.consoleLog("INFO",
+    "Extension " .. ext ..
+    " | Registered: " .. tostring(is_registered) ..
+    " | In Call: " .. tostring(in_call) ..
+    " | Status: " .. call_status .. "\n"
+)
+function table_to_json(tbl)
+    local json = "{"
+    local first = true
+    for k, v in pairs(tbl) do
+        if not first then json = json .. "," end
+        json = json .. string.format('"%s":"%s"', k, v)
+        first = false
+    end
+    json = json .. "}"
+    return json
+end
+
+-- Build payload
+local payload_table = { call_status = call_status }
+local payload = table_to_json(payload_table)
+--local payload = { call_status =call_status}
+
+freeswitch.consoleLog("INFO", "JSON Payload: " .. payload .. "\n")
+
+-- Make HTTP POST request using FreeSWITCH curl
+local api_url = "https://epmstg.automaxsw.com/api/system/users/" .. ext .. "/status"
+
+
+-- Use FreeSWITCH API to make the call with Accept header
+local curl_cmd1 = string.format(
+    "%s content-type application/json header 'Accept: application/json' post '%s'",
+    api_url,
+    payload
+)
+
+freeswitch.consoleLog("INFO", "Final curl cmd: " .. curl_cmd1 .. "\n")
+
+local response1 = api:executeString("curl " .. curl_cmd1)
+
+freeswitch.consoleLog("INFO", "API Response1: " .. tostring(response1) .. "\n")
+
+-- Check response
+if response and response  ~= "" then
+    freeswitch.consoleLog("INFO", "Call log API request successful\n")
+    freeswitch.consoleLog("INFO", "Response body: " .. response .. "\n")
+else
+    freeswitch.consoleLog("WARNING", "Call log API returned empty response\n")
+end
+------------
+
+-- Prepare payload
+-- Load API client module
+local script_dir = freeswitch.getGlobalVariable("script_dir")
+local api_client = dofile(script_dir .. "/api_client.lua")
+
+-- Convert invited_users to array of numbers
+if not invited_users or invited_users == "" or invited_users == "null" then
+    invited_users = {}
+elseif type(invited_users) ~= "table" then
+    invited_users = {tonumber(invited_users)}
+else
+    for i, v in ipairs(invited_users) do
+        invited_users[i] = tonumber(v)
+    end
+end
+invited_users._is_array = true
+
+-- Convert created_by to number if needed
+created_by = tonumber(created_by) or created_by
+
+-- Build payload
+local payload = {
+    call_uuid = uuid,
+    created_by = created_by,
+    status = status,
+    start_at = start_at,
+    invited_users = invited_users
+}
+
+-- API endpoint
+local api_url = "https://epmstg.automaxsw.com/api/system/call-logs/"
+
+-- Send POST request
+local response = api_client.send_post(api_url, payload)
+
+-- Decode response safely
+local decoded
+if response and response ~= "" then
+    local ok, cjson = pcall(require, "cjson")
+    if ok then
+        local success, result = pcall(cjson.decode, response)
+        if success then
+            decoded = result
+        else
+            freeswitch.consoleLog("ERR", "Failed to decode JSON response using cjson\n")
+            freeswitch.consoleLog("ERR", "Raw response: " .. response .. "\n")
+            return
+        end
+    else
+        freeswitch.consoleLog("WARNING", "cjson module not available. Raw response: " .. response .. "\n")
+        return
+    end
+else
+    freeswitch.consoleLog("WARNING", "Call log API returned empty response\n")
+    return
+end
+
+-- Extract callLogID
+local callLogID = decoded and decoded.response and decoded.response.id
+if callLogID then
+    freeswitch.consoleLog("INFO", "Call log ID: " .. callLogID .. "\n")
+    local api = freeswitch.API()
+    local cmd = "uuid_setvar " .. uuid .. " callLogID " .. callLogID
+    api:executeString(cmd)
+else
+    freeswitch.consoleLog("ERR", "Call log ID not found in response\n")
+end
+

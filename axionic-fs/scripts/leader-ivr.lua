@@ -1,5 +1,7 @@
 api = freeswitch.API();
 json = freeswitch.JSON()
+local orig_caller = tostring(argv[1])
+local destination=tostring(argv[2])
 local from_num = session:getVariable("caller_id_number")
 freeswitch.consoleLog("notice","Caller ID Number : "..from_num)
 local dialed_number = session:getVariable("destination_number")
@@ -13,7 +15,13 @@ local module_folder = freeswitch.getGlobalVariable("script_dir") .."/"
 package.path = module_folder .. "?.lua;" .. package.path
 local api_call = require "lua-functions/api_call"
 local config = require "lua-functions/config"
+local  call_log_id = session:getVariable("call_log_id")
+                 or session:getVariable("callLogId")
+                 or session:getVariable("sip_h_X-Call-Log-Id")
 
+local  caller_name = session:getVariable("caller_name")
+                 or session:getVariable("caller_name")
+                 or session:getVariable("sip_h_X-Caller_name")
 if freeswitch.getGlobalVariable("access_token") ~= nil then
 	access_token = freeswitch.getGlobalVariable("access_token")
 	auth_userId = freeswitch.getGlobalVariable("fs_userId")
@@ -76,6 +84,19 @@ session:execute("sleep","500")
                 --session:execute("callcenter","leader-ivr@default")
                 --session:execute("playback","/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/AgentBusy.wav")
                 --session:hangup()
+
+ 		freeswitch.consoleLog("NOTICE", " call_log_id  processed callLogId: " ..  call_log_id .. "\n")
+		session:setVariable("call_log_id", call_log_id)
+		session:execute("export", "nolocal:call_log_id=" .. tostring(call_log_id))
+		 freeswitch.consoleLog("NOTICE", " orig_caller  processed orig_caller: " ..  orig_caller .. "\n")
+                session:setVariable("orig_caller", orig_caller)
+                session:execute("export", "nolocal:orig_caller=" .. tostring(orig_caller))
+		  session:setVariable("orig_caller", orig_caller)
+                session:execute("export", "nolocal:orig_caller=" .. tostring(orig_caller))
+
+		  session:setVariable("destination", destination)
+                session:execute("export", "nolocal:destination" .. tostring(destination))
+
 		session:execute("transfer","LEADER_910 XML public")
 		--session:setVariable("call_timeout", "30");
 		--session:execute("transfer","116 XML public");

@@ -47,6 +47,7 @@
 
   -->
 
+  <X-PRE-PROCESS cmd="set" data="certs_dir=/usr/local/freeswitch/conf/tls"/>
 
   <X-PRE-PROCESS cmd="set" data="sound_prefix=$${sounds_dir}/en/us/callie"/>
   <!--<Z-PRE-PROCESS cmd="set" data="sound_prefix=$${sounds_dir}/en/us/allison"/> -->
@@ -59,7 +60,8 @@
       affect the sip authentication.  Please review conf/directory/default.xml for more
       information on this topic.
   -->
-  <X-PRE-PROCESS cmd="set" data="domain=$${local_ip_v4}"/>
+<X-PRE-PROCESS cmd="set" data="domain=zkff.automaxsw.com"/>
+
 	<!--  <X-PRE-PROCESS cmd="set" data="domain=15.207.94.247"/> -->
   <X-PRE-PROCESS cmd="set" data="domain_name=zkff.automaxsw.com" />
 <!--   <X-PRE-PROCESS cmd="set" data="domain_name=$${domain}"/> -->
@@ -311,13 +313,19 @@
 	  
 	  <X-PRE-PROCESS cmd="stun-set" data="external_sip_ip=15.207.94.247"/>  
   -->
+	  <!--
+<X-PRE-PROCESS cmd="stun-set" data="external_rtp_ip=15.207.94.247"/>
+<X-PRE-PROCESS cmd="stun-set" data="external_rtp_ip=15.207.94.247"/>
+	  
+<X-PRE-PROCESS cmd="set" data="external_sip_ip=stun:stun.l.google.com:19302"/>
+<X-PRE-PROCESS cmd="set" data="external_rtp_ip=stun:stun.l.google.com:19302"/>
+	  -->
+<X-PRE-PROCESS cmd="stun-set" data="external_sip_ip=15.207.94.247"/>
+<X-PRE-PROCESS cmd="stun-set" data="external_rtp_ip=15.207.94.247"/>
+<X-PRE-PROCESS cmd="set" data="azure_subscription_key=1cfc10bab7f54e53bb5fad1b6d6dfee4"/>
+<X-PRE-PROCESS cmd="set" data="azure_region=uksouth"/>
 
-<X-PRE-PROCESS cmd="stun-set" data="external_rtp_ip=15.207.94.247"/>
-<X-PRE-PROCESS cmd="stun-set" data="external_rtp_ip=15.207.94.247"/>
-<!--
-<X-PRE-PROCESS cmd="stun-set" data="external_rtp_ip=stun:stun.l.google.com:19302"/>
- <X-PRE-PROCESS cmd="stun-set" data="external_sip_ip=stun:stun.l.google.com:19302"/>
--->
+<X-PRE-PROCESS cmd="set" data="WhatsApp_token=EAAhtSJ1sZCfgBQKDZAOt7ZAzdPxQEg8hPGvoExs9J7ZAPcFccxBdARqdIqVLkP2ddh0X5qFlfcsFulOsDWLMquE98A1FZB2OinI7d1Gm87ksVzJ7aJZBaumNqNtHuoP2NQ77Y5elcFaHkhLH1v0ZBEcOV5EXrrO1RGDvJ5qyKqDCQ0mzfYB5DANEzeMFh2m"/>
 <!-- external_sip_ip
       Used as the public IP address for SDP.
        Can be an one of:

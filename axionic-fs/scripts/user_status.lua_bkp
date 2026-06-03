@@ -1,0 +1,63 @@
+local api = freeswitch.API()
+local json = freeswitch.JSON()
+
+
+local uuid = tostring(argv[1])
+local ext = tostring(argv[2])
+freeswitch.consoleLog("INFO", "EXT = " .. tostring(ext) .. "\n")
+freeswitch.consoleLog("INFO", "UUID = " .. tostring(uuid) .. "\n")
+local created_by = session:getVariable("caller_id_number")
+freeswitch.consoleLog("INFO", "created_by = " .. tostring(created_by) .. "\n")
+local invited_users = ext
+local time = os.date("%Y-%m-%d %H:%M:%S")
+cmd = "uuid_setvar " .. tostring(uuid) .. " start_at " .. tostring(time)
+freeswitch.consoleLog("NOTICE", "Notification cmd " .. tostring(cmd) .. " ...\n")
+a = api:executeString(cmd)
+freeswitch.consoleLog("INFO", "start_at = " .. tostring(time) .. "\n")
+freeswitch.consoleLog("INFO", "invited_users = " .. tostring(invited_users) .. "\n")
+
+-- 1) CHECK REGISTRATION
+local activeuser = api:executeString("sofia_contact " .. ext)
+freeswitch.consoleLog("INFO", "Agent id is: " .. activeuser .. "\n")
+local reguser = activeuser:find("error")
+
+-- Determine if registered
+local is_registered = (reguser == nil)  -- nil means "error" NOT found = user IS registered
+
+-- 2) CHECK ACTIVE CALL
+local channel_info = api:executeString("show channels like " .. ext)
+local in_call = false
+if string.find(channel_info, ext) then
+    in_call = true
+end
+
+-- 3) DETERMINE FINAL STATUS
+local call_status = ""
+if in_call then
+    call_status = "in_call"
+      session:execute("playback","/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/busy_call.wav");
+        session:sleep(200)
+
+elseif is_registered then
+    call_status = "available"
+else
+    call_status = "offline"
+     session:execute("playback","/usr/local/freeswitch-prod-instance/share/freeswitch/sounds/custom-ivrs/offline.wav");
+	session:sleep(200)
+end
+
+-- 4) UPDATE UUID VARIABLE
+--local cmd = "uuid_setvar " .. uuid .. " call_status " .. call_status
+--freeswitch.consoleLog("NOTICE", "Notification cmd: " .. cmd .. "\n")
+--local a = api:executeString(cmd)
+
+-- 5) PRINT RESULT
+freeswitch.consoleLog("INFO",
+    "Extension " .. ext ..
+    " | Registered: " .. tostring(is_registered) ..
+    " | In Call: " .. tostring(in_call) ..
+    " | Status: " .. call_status .. "\n"
+)
+
+
+

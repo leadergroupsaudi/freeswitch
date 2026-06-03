@@ -56,7 +56,7 @@ local errorMessage = tostring(userPresence_data)
 
 -- Check if user is already in a call
 --if errorMessage:match("User is already in a call") then
-if errorMessage:lower():match("in call") then
+if errorMessage:lower():match("in call test") then
     freeswitch.consoleLog("INFO", "User is busy, sending Missed notification and voicemail\n")
 
     -- Send missed call API

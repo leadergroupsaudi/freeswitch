@@ -44,16 +44,56 @@ function api_call.createCallLog(useragent_json,access_token,auth_userId)
 --	local curl_command = callLog_api.." content-type application/JSON post "..useragent_json
 --	session:execute("curl", callLog_api .. " content-type:application/json post '" .. useragent_json .. "'")
 	session:execute("curl", "https://wapis.discretal.com/calls/addAxionicDetails content-type application/JSON post " .. useragent_json .. " ssl-verifyhost 0 ssl-verifypeer 0")
---	freeswitch.consoleLog("NOTICE", "cURL command: " .. curl_command .. "\n")
---	session:execute("curl", curl_command)
         local api_response_code = session:getVariable("curl_response_code")
 	local curl_error = session:getVariable("curl_error")
+
 	local api_response_data = session:getVariable("curl_response_data")
+	local api_response_raw = session:getVariable("curl_response_data")
 	freeswitch.consoleLog("NOTICE", "cURL Response Code: " .. (api_response_code or "nil") .. "\n")
 	freeswitch.consoleLog("ERROR", "cURL Error: " .. (curl_error or "nil") .. "\n")
 	freeswitch.consoleLog("NOTICE", "cURL Response Data: " .. (api_response_data or "nil") .. "\n")
         freeswitch.consoleLog("NOTICE","Create Call Log API response code :: " ..api_response_code )
-        if  tonumber(api_response_code) >= 200 and tonumber(api_response_code) <= 400 then
+        --------------------------------
+	if api_response_code and tonumber(api_response_code) >= 200 and tonumber(api_response_code) < 400 then
+    freeswitch.consoleLog("NOTICE", "Create Call Log API success\n")
+
+    -- ================================
+    -- VALIDATE RESPONSE BODY
+    -- ================================
+    if api_response_raw and api_response_raw ~= "" then
+
+        -- ✅ SAFE JSON DECODE (FreeSWITCH cjson)
+        local ok, api_response_data = pcall(json.decode, json, api_response_raw)
+
+        if not ok then
+            freeswitch.consoleLog("ERROR", "Failed to decode API response JSON\n")
+            return
+        end
+
+        -- ✅ SAFE JSON PRINT (FIXED)
+        freeswitch.consoleLog(
+            "NOTICE",
+            "Decoded API Response: " .. json:encode(api_response_data) .. "\n"
+        )
+
+        -- ================================
+        -- ACCESS NESTED DATA
+        -- ================================
+        if api_response_data.response and api_response_data.response.call_id then
+            freeswitch.consoleLog(
+                "NOTICE",
+                "Received call_id: " .. api_response_data.response.call_id .. "\n"
+            )
+        end
+
+    else
+        freeswitch.consoleLog("WARNING", "curl_response_data is empty\n")
+    end
+else
+    freeswitch.consoleLog("ERROR", "Create Call Log API failed\n")
+end
+	----------------------------
+	if  tonumber(api_response_code) >= 200 and tonumber(api_response_code) <= 400 then
             freeswitch.consoleLog("NOTICE","Create Call Log API response data :: " ..session:getVariable("curl_response_data") )
             local api_response_data = json:decode(session:getVariable("curl_response_data"))
             --if api_response_data and api_response_data.response and api_response_data.response.callLogId then
@@ -65,6 +105,10 @@ function api_call.createCallLog(useragent_json,access_token,auth_userId)
                      freeswitch.consoleLog("NOTICE", "Call Log ID is :: " .. callLogId .. "\n")
 	            session:setVariable("sip_h_X-CallLogId", callLogId);
 	            session:execute("export","nolocal:sip_h_X-CallLogId="..callLogId)
+		    local uuid = session:getVariable("uuid")
+		       cmd_call="uuid_setvar      "..tostring(uuid).."      ".."call_id".."             "..tostring(callLogId);
+                        freeswitch.consoleLog("NOTICE","Notification cmd " .. tostring(cmd_call) .. " ...\n")
+                        a=api:executeString(cmd_call)
 		    return message .. " | call_id: " .. callLogId
 		   -- return api_response_data.message
             else

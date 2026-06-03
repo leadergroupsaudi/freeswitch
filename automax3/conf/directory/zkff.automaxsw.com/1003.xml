@@ -1,7 +1,8 @@
 <include>
   <user id="1003">
     <params>
-      <param name="password" value="Leader@123"/>
+      <param name="max-calls" value="1"/>
+	    <param name="password" value="$${default_password}"/>
       <param name="vm-password" value="1003"/>
     </params>
     <variables>

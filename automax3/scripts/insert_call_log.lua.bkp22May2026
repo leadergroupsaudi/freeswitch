@@ -1,0 +1,127 @@
+local json = require "lunajson"
+local call_uuid = tostring(session:getVariable("UUID"));
+local agent_name = session:getVariable("variable_cc_agent")
+local caller = session:getVariable("caller_id_number")
+local callee = session:getVariable("destination_number")
+local https = require("ssl.https")
+local ltn12 = require("ltn12")
+local call_uuid = tostring(session:getVariable("UUID"));
+
+-- freeswitch.consoleLog("INFO", ":callLogID " .. tostring(id) .. "\n")
+freeswitch.consoleLog("INFO", "call_status at: " .. tostring(call_status) .. "\n")
+freeswitch.consoleLog("INFO", "caller_name: " .. tostring(caller) .. "\n")
+freeswitch.consoleLog("INFO", "callee_name: " .. tostring(callee) .. "\n")
+session:setVariable("sip_h_X-EPM940-UUID",tostring(call_uuid));
+local caller_joined_at = tostring(session:getVariable("start_at"))
+
+start_at = tostring(caller_joined_at or ""):gsub(" ", "T") .. "Z"
+
+-- caller = "cad1691d-d700-43a5-b926-7589e8e29c51"
+-- callee = "9b0b7778-d373-480f-8c11-da1c4033ae70"
+
+-- Build participants as UUID strings
+local participants = {}
+if callee and callee ~= "" then
+    table.insert(participants, tostring(callee))
+end
+if caller and caller ~= "" then
+    table.insert(participants, tostring(caller))
+end
+
+local invited_users = {}
+
+local answered = session:getVariable("answertime")
+if answered and answered ~= "" then
+    -- User already joined, don't add to invited
+else
+    -- User is invited but not joined
+    if callee and callee ~= "" then
+        table.insert(invited_users, tostring(callee))
+    end
+end
+local function get_token()
+    local api = freeswitch.API()
+    local payload = '{"email":"freeswitch@automax.com","password":"Leader@123"}'
+
+
+    --local curl_cmd = "https://ax3.automaxsw.com/api/v1/auth/login content-type application/json post " .. payload
+    local curl_cmd = "https://epmstg.automaxsw.com/api/v1/auth/login content-type application/json post " .. payload
+
+    freeswitch.consoleLog("INFO", "Executing: curl " .. curl_cmd .. "\n")
+
+    local result = api:executeString("curl " .. curl_cmd)
+
+    freeswitch.consoleLog("INFO", "CURL epmstg outbridge.lua Result: " .. tostring(result) .. "\n")
+
+    return result
+end
+-- local token = get_token()
+local token_json, err = get_token()
+local data = json.decode(token_json)
+access_token = data["data"]["token"]
+session:setVariable("access_token",access_token)
+
+freeswitch.consoleLog("INFO", "Access Token: " .. access_token .. "\n")
+
+-- MINIMAL TEST - only required field
+local payload1 = {
+    status = "in_call",
+    start_at = start_at,
+    created_by = caller,
+    --initiator_id="cad1691d-d700-43a5-b926-7589e8e29c51",
+    initiator_id=caller,
+    call_uuid = call_uuid,
+    participants = participants,      -- Array of UUID strings
+    invited_users = invited_users     -- Array of UUID strings
+}
+local function is_extension(number)
+    return number ~= nil and #number <= 4  -- adjust threshold to your setup
+end
+local caller_num = session:getVariable("caller_id_number") or ""
+local callee_num = session:getVariable("destination_number") or ""
+
+local payload = {
+    status = "in_call",
+    start_at = start_at,
+    created_by = caller,
+    initiator_id = caller,
+    call_uuid = call_uuid,
+    -- participants = participants,
+    invited_users = invited_users,
+    call_type = "direct",
+    initiator = {
+        extension   = is_extension(caller_num) and caller_num or "",
+        guest_phone = is_extension(caller_num) and "" or caller_num
+    },
+    recipient = {
+        extension   = is_extension(callee_num) and callee_num or "",
+        guest_phone = is_extension(callee_num) and "" or callee_num
+    }
+}
+local json_payload = json.encode(payload)
+
+freeswitch.consoleLog("INFO", "Call Start Minimal JSON: " .. json_payload .. "\n")
+
+--local api_url = "https://ax3.automaxsw.com/api/v1/admin/call-logs"
+local api_url = "https://epmstg.automaxsw.com/api/v1/calls/start"
+
+local response_body = {}
+
+local res, code, response_headers, status_line = https.request{
+    url = api_url,
+    method = "POST",
+    headers = {
+        ["Content-Type"] = "application/json",
+        ["Authorization"] = "Bearer " .. access_token,
+        ["Content-Length"] = tostring(#json_payload)
+    },
+    source = ltn12.source.string(json_payload),
+    sink = ltn12.sink.table(response_body)
+}
+
+local response_text = table.concat(response_body)
+
+freeswitch.consoleLog("INFO", "===START CALL API RESPONSE ===\n")
+freeswitch.consoleLog("INFO", "Status Code: " .. tostring(code) .. "\n")
+freeswitch.consoleLog("INFO", "Response Body: " .. response_text .. "\n")
+freeswitch.consoleLog("INFO", "===============\n")

@@ -1,0 +1,246 @@
+local json = require "lunajson"
+
+api = freeswitch.API();
+uuid=tostring(argv[1]);
+local caller_ext = tostring(argv[2])  -- use this instead of session:getVariable
+freeswitch.consoleLog("INFO", "caller ext = " .. tostring(caller_ext) .. "\n")
+freeswitch.consoleLog("INFO", "dialed_extension = " .. tostring(session:getVariable("dialed_extension")) .. "\n")
+freeswitch.consoleLog("INFO", "sip_req_user = " .. tostring(session:getVariable("sip_req_user")) .. "\n")
+freeswitch.consoleLog("INFO", "Hunt-Destination-Number = " .. tostring(session:getVariable("Hunt-Destination-Number")) .. "\n")
+freeswitch.consoleLog("INFO", "destination_number raw = " .. tostring(session:getVariable("destination_number")) .. "\n")
+ ext =  session:getVariable("destination_number")
+
+local caller = session:getVariable("caller_id_number")
+freeswitch.consoleLog("INFO", "EXT = " .. tostring(ext) .. "\n")
+freeswitch.consoleLog("INFO", "caller = " .. tostring(caller) .. "\n")
+status ="in_call";
+local call_uuid = tostring(session:getVariable("UUID"));
+
+local caller = session:getVariable("caller_id_number")
+freeswitch.consoleLog("INFO", "EXT = " .. tostring(ext) .. "\n")
+freeswitch.consoleLog("INFO", "caller = " .. tostring(caller) .. "\n")
+status = "in_call";
+freeswitch.consoleLog("INFO", "call_status at: " .. tostring(call_status) .. "\n")
+local call_status = "in_call"
+
+local caller_joined_at = tostring(session:getVariable("start_at"))
+
+start_at = tostring(caller_joined_at or ""):gsub(" ", "T") .. "Z"
+local participants = tostring(callee) .. "," .. tostring(caller)
+created_by = caller;
+
+freeswitch.consoleLog("INFO", "Participants = " .. participants .. "\n")
+
+local callee_number = tostring(session:getVariable("destination_number"))
+freeswitch.consoleLog("INFO", "Joined call start at : " .. tostring(start_at) .. "\n")
+
+-- ================== Participants ==================
+
+local participants = {}
+if tonumber(callee) then
+    table.insert(participants, tonumber(callee))
+end
+if tonumber(caller) then
+    table.insert(participants, tonumber(caller))
+else
+    table.insert(participants, tonumber(caller_ext))
+end
+
+-- ================== Joined / Invited ==================
+
+local joined_users = {}
+local invited_users = {}
+
+local answered = session:getVariable("answertime")
+
+if answered and answered ~= "" then
+    table.insert(joined_users, tonumber(callee))
+else
+    table.insert(invited_users, tonumber(callee))
+end
+
+
+
+
+local function get_token()
+    local api = freeswitch.API()
+    local payload = '{"email":"freeswitch@automax.com","password":"Leader@123"}'
+
+    local curl_cmd = "https://epmstg.automaxsw.com/api/v1/auth/login content-type application/json post " .. payload
+
+    freeswitch.consoleLog("INFO", "Executing: curl " .. curl_cmd .. "\n")
+
+    local result = api:executeString("curl " .. curl_cmd)
+
+    freeswitch.consoleLog("INFO", "CURL AX3 outbridge.lua Result: " .. tostring(result) .. "\n")
+
+    return result
+end
+
+
+local time = os.date( "%Y-%m-%d %H:%M:%S");
+cmd="uuid_setvar      "..tostring(uuid).."      ".."answertime".."             "..tostring(time)
+freeswitch.consoleLog("NOTICE","Notification cmd " .. tostring(cmd) .. " ...\n")
+a=api:executeString(cmd)
+
+function table_to_json(tbl)
+    local json = "{"
+    local first = true
+    for k, v in pairs(tbl) do
+        if not first then json = json .. "," end
+        json = json .. string.format('"%s":"%s"', k, v)
+        first = false
+    end
+    json = json .. "}"
+    return json
+end
+
+    freeswitch.consoleLog("INFO", "Call answered → executing API \n")
+
+    local payload = '{"call_status":"in_call"}'
+--    local api_url = "https://epmstg.automaxsw.com/api/system/users/" .. caller .. "/status"
+    local api_url = "https://epmstg.automaxsw.com/api/v1/users/" .. caller .. "/status"
+
+    local curl_cmd = string.format(
+        "%s content-type application/json header 'Accept: application/json' put '%s'",
+        api_url,
+        payload
+    )
+
+    -- First execution
+    local resp1 = api:executeString("curl " .. curl_cmd)
+    freeswitch.consoleLog("INFO", "API Response using outbridge.lua #1: " .. tostring(resp1) .. "\n")
+   -- local token = get_token()
+    --local token_json, err = get_token()
+local access_token = session:getVariable("access_token")
+
+-- only fetch if missing
+if not access_token then
+    local token_json, err = get_token()
+
+    if token_json then
+        local data = json.decode(token_json)
+
+        if data and data["data"] and data["data"]["token"] then
+            access_token = tostring(data["data"]["token"])
+
+            freeswitch.consoleLog("INFO",
+                "Access Token fetched: " .. access_token .. "\n")
+
+            session:setVariable("access_token", access_token)
+        else
+            freeswitch.consoleLog("ERR", "Token not found in response\n")
+        end
+    else
+        freeswitch.consoleLog("ERR", "get_token() failed: " .. tostring(err) .. "\n")
+    end
+end
+
+local function is_extension(number)
+    return number ~= nil and #number <= 4  -- adjust threshold to your setup
+end
+local caller_num = session:getVariable("caller_id_number") or ""
+local callee_num = session:getVariable("destination_number") or ""
+local payload = {
+--    attachmentID = attachmentID,
+--    recording_url=attachmentID,
+--    namespaceID = namespaceID,
+--    call_uuid = call_uuid,
+--    created_by = created_by,
+--    status = status,
+--    start_at = start_at,
+--    end_at = end_at,
+--    participants = participants,
+--    joined_users = joined_usersr,
+    extension   = is_extension(caller_num) and caller_num or "",
+        guest_phone = is_extension(caller_num) and "" or caller_num
+--        extension    = tostring(caller_ext)  -- whoever is joining = callee
+--    invited_users = invited_users
+}
+-- freeswitch.consoleLog("INFO", "namespaceID".. namespaceID)
+local function encode_json(data)
+    local function esc(s)
+        s = tostring(s)
+        s = s:gsub("\\", "\\\\"):gsub('"', '\\"')
+        return '"' .. s .. '"'
+    end
+
+    local function arr(t)
+        local o = {}
+        for _, v in ipairs(t) do
+            table.insert(o, type(v) == "number" and v or esc(v))
+        end
+        return "[" .. table.concat(o, ",") .. "]"
+    end
+
+    local function obj(t)
+        local o = {}
+        for k, v in pairs(t) do
+            if v ~= nil then
+                local val
+                if type(v) == "table" then
+                    val = arr(v)
+                elseif type(v) == "number" then
+                    val = v
+                else
+                    val = esc(v)
+                end
+                table.insert(o, esc(k) .. ":" .. val)
+            end
+        end
+        return "{" .. table.concat(o, ",") .. "}"
+    end
+
+    return obj(data)
+end
+-- Convert to JSON
+local json_payload = encode_json(payload)
+
+freeswitch.consoleLog("INFO", "JSON Payload: " .. json_payload .. "\n")
+
+-- Make HTTP PUT request using FreeSWITCH curl
+-- local api_url = "https://epmstg.automaxsw.com/api/system/call-logs/" ..callog_id
+local call_uuid = tostring(session:getVariable("UUID")) or uuid;
+
+
+--local api_url = "https://ax3.automaxsw.com/api/v1/calls/"..uuid.."/join?token="
+local api_url = "https://epmstg.automaxsw.com/api/v1/calls/"..uuid.."/join?token="
+
+local token_json, err = get_token()
+local data = json.decode(token_json)
+local access_token = data["access_token"] or data["data"]["token"]
+-- Use FreeSWITCH API to make the call with Accept header
+--local api = freeswitch.API()
+--local access_token = session:getVariable("access_token")
+local curl_cmd = string.format(
+    "%s%s content-type application/json -H 'Authorization: Bearer %s' -H 'Accept: application/json' post '%s'",
+    api_url,
+    access_token,
+    access_token,
+    json_payload
+)
+
+freeswitch.consoleLog("INFO", "Final curl to join call log cmd: " .. curl_cmd .. "\n")
+
+local response = api:executeString("curl " .. curl_cmd)
+
+
+-- Check response
+if response and response ~= "" then
+    freeswitch.consoleLog("INFO", "Call log API request successful\n")
+    freeswitch.consoleLog("INFO", "Response body: " .. response .. "\n")
+local decoded = json.decode(response)
+-- if not decoded then this
+if not decoded then
+    freeswitch.consoleLog("ERR", "Failed to decode JSON response\n")
+    freeswitch.consoleLog("ERR", "Body was: " .. response .. "\n")
+    return
+end
+
+--local callLogID = decoded and decoded.response and decoded.response.id  and  decoded.response.data.id
+
+-- if not decoded then this
+
+    freeswitch.consoleLog("INFO", "call log id response :".. tostring(response))
+    freeswitch.consoleLog("INFO", "call log id response :".. tostring(curl_cmd))
+end

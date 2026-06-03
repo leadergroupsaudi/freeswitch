@@ -1,0 +1,156 @@
+-- hup_both.lua
+
+local api  = freeswitch.API()
+local json = freeswitch.JSON()
+
+local uuid = argv[1]
+if not uuid or uuid == "" then
+    freeswitch.consoleLog("ERR", "Usage: lua hup_both.lua <uuid>\n")
+    return
+end
+
+-- ------------------------------------------------------------
+-- Helpers
+-- ------------------------------------------------------------
+local function safe(value, default)
+    if value == nil or value == "" or value == "nil" then
+        return default
+    end
+    return value
+end
+
+-- timestamps: keep nil if missing
+local function safe_ts(value)
+    if value == nil or value == "" or value == "nil" then
+        return nil
+    end
+    return value
+end
+
+-- convert Lua value → JSON value
+local function json_value(v)
+    if v == nil then
+        return "null"
+    else
+        return '"' .. v .. '"'
+    end
+end
+
+-- ------------------------------------------------------------
+-- Fetch variables (NO tostring)
+-- ------------------------------------------------------------
+local call_id        = session:getVariable("call_id")
+local caller_id      = session:getVariable("caller_id_number")
+local callee_id      = session:getVariable("destination_number")
+local callee_numeric = session:getVariable("destination_number")
+
+local duration       = tonumber(session:getVariable("billsec")) or 0
+local hangup_cause   = session:getVariable("hangup_cause")
+
+local caller_joined_at = safe_ts(session:getVariable("start_stamp"))
+local callee_joined_at = safe_ts(session:getVariable("answertime"))
+local caller_left_at   = safe_ts(session:getVariable("end_stamp"))
+local callee_left_at   = safe_ts(session:getVariable("end_stamp"))
+local recfilename = safe_ts(session:getVariable("recfilename"))
+
+-- ------------------------------------------------------------
+-- Normalize non-timestamp values
+-- ------------------------------------------------------------
+call_id        = safe(call_id, "unknown")
+caller_id      = safe(caller_id, "unknown")
+callee_id      = safe(callee_id, "unknown")
+callee_numeric = safe(callee_numeric, "unknown")
+
+-- ------------------------------------------------------------
+-- Logs (verify correctness)
+-- ------------------------------------------------------------
+
+
+freeswitch.consoleLog("INFO", "recfinlename: " .. tostring(recfilename) .. "\n")
+freeswitch.consoleLog("INFO", "callee_joined_at (lua): " .. tostring(callee_joined_at) .. "\n")
+freeswitch.consoleLog("INFO", "hangup_cause        : " .. tostring(hangup_cause) .. "\n")
+
+-- ------------------------------------------------------------
+-- Status logic
+-- ------------------------------------------------------------
+local status = "MISSED"
+
+if hangup_cause == "NORMAL_CLEARING" then
+    if callee_joined_at ~= nil then
+        status = "LEAVE"
+    else
+        status = "MISSED"
+    end
+elseif hangup_cause == "NO_ANSWER"
+    or hangup_cause == "ORIGINATOR_CANCEL"
+    or hangup_cause == "USER_BUSY"
+    or hangup_cause == "CALL_REJECTED"
+    or hangup_cause == "CONGESTION"
+    or hangup_cause == "BUSY" then
+    status = "MISSED"
+else
+    status = "MISSED"
+end
+
+if status == "MISSED" then
+recfilename= nil;
+end
+
+freeswitch.consoleLog("INFO", "recfinlename: " .. json_value(recfilename) .. "\n")
+-- ------------------------------------------------------------
+-- LOGIN API
+-- ------------------------------------------------------------
+local login_payload = [[
+{
+  "email":"t.romit@leadergroup.com",
+  "password":"romit@123"
+}
+]]
+
+local login_curl =
+    "https://wapis.discretal.com/auth/signin " ..
+    "content-type application/json " ..
+    "post '" .. login_payload .. "'"
+
+local login_resp = api:execute("curl", login_curl)
+local login_json = json:decode(login_resp)
+
+if not login_json or not login_json.response or not login_json.response.access_token then
+    freeswitch.consoleLog("ERR", "Failed to get bearer token\n")
+    return
+end
+
+local token = login_json.response.access_token
+
+-- ------------------------------------------------------------
+-- BUILD PAYLOAD (JSON null handled correctly)
+-- ------------------------------------------------------------
+local payload = [[
+{
+  "call_id":"]] .. call_id .. [[",
+  "callee_type":null,
+  "callee_id":"]] .. callee_id .. [[",
+  "callee_numeric":"]] .. callee_numeric .. [[",
+  "caller_id":"]] .. caller_id .. [[",
+  "caller_joined_at":]] .. json_value(caller_joined_at) .. [[,
+  "caller_left_at":]] .. json_value(caller_left_at) .. [[,
+  "callee_joined_at":]] .. json_value(callee_joined_at) .. [[,
+  "callee_left_at":]] .. json_value(callee_left_at) .. [[,
+  "status":"]] .. status .. [["
+
+}
+]]
+
+freeswitch.consoleLog("INFO", "Final payload:\n" .. payload .. "\n")
+
+-- ------------------------------------------------------------
+-- PUT API
+-- ------------------------------------------------------------
+local put_curl =
+    "https://wapis.discretal.com/calls/sip-call-details " ..
+    "content-type application/json " ..
+    "header Authorization:Bearer%20" .. token .. " " ..
+    "put '" .. payload .. "'"
+
+local put_resp = api:execute("curl", put_curl)
+freeswitch.consoleLog("INFO", "PUT response: " .. tostring(put_resp) .. "\n")

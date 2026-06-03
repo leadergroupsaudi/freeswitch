@@ -1,16 +1,10 @@
 local callLog = {}
 local api = freeswitch.API()
 local json = freeswitch.JSON()
-
 -- Fetch basic channel info
 local uuid = session:getVariable("uuid") or ""
 local call_direction = (session:getVariable("Call-Direction") or ""):lower()
-local caller_number = session:getVariable("Caller-Caller-ID-Number")
-    or session:getVariable("caller_id_number")
-    or session:getVariable("effective_caller_id_number")
-    or session:getVariable("sip_from_user")
-    or ""
-
+local caller_number =argv[1];
 
 
     --local caller_number =session:getVariable("Caller-Caller-ID-Number") or session:getVariable("Caller-Orig-Caller-ID-Number") or  ""
@@ -85,15 +79,16 @@ function callLog.create()
 			a=api:executeString(cmd)
                     
 			-- Set CallLogId variables for downstream logic
-                    session:setVariable("sip_h_X-CallLogId", callLogId)
-                    session:execute("export", "nolocal:sip_h_X-CallLogId=" .. callLogId)
-                    session:setVariable("Call_Log_Id", callLogId)
-                   session:setVariable("export_vars", "callLogId,sip_h_X-CallLogId")
-		   session:setVariable("cc_export_vars", "callLogId,sip_h_X-CallLogId")
-
-		    session:execute("export", "nolocal:Call_Log_Id=" .. callLogId)
-
-
+                    --session:setVariable("sip_h_X-CallLogId", callLogId)
+                   -- session:execute("export", "nolocal:sip_h_X-CallLogId=" .. callLogId)
+                   -- session:setVariable("Call_Log_Id", callLogId)
+                --   session:setVariable("export_vars", "callLogId,sip_h_X-CallLogId")
+		  -- session:setVariable("cc_export_vars", "callLogId,sip_h_X-CallLogId")
+		   -- session:execute("export", "nolocal:Call_Log_Id=" .. callLogId)
+   session:setVariable("call_log_id", callLogId)
+        session:execute("export", "nolocal:call_log_id=" .. callLogId)
+        session:setVariable("sip_h_X-Call-Log-Id", callLogId)
+        session:execute("export", "nolocal:sip_h_X-Call-Log-Id=" .. callLogId)
                     return callLogId
                 end
             else

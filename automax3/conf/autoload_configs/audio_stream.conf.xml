@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration name="audio_stream.conf" description="Audio Stream Configuration">
+  <settings>
+    <param name="ssl-verify-peer" value="false"/>
+    <param name="ssl-verify-host" value="false"/>
+    <param name="connect-timeout" value="5000"/>
+  </settings>
+</configuration>

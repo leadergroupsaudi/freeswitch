@@ -1,0 +1,232 @@
+-- prehangup.lua
+local api = freeswitch.API()
+local consumer = freeswitch.EventConsumer("CHANNEL_HANGUP_COMPLETE")
+freeswitch.consoleLog("NOTICE", "Hangup Event Listener started...\n")
+
+-- ---------------- HELPERS ----------------
+local function gv(e, name)
+    return e:getHeader(name)
+end
+
+local function epoch_to_utc(epoch)
+    local n = tonumber(epoch)
+    if n and n > 0 then
+        return os.date("%Y-%m-%d %H:%M:%S", n)
+    end
+    return nil
+end
+
+local function to_json_value(val)
+    if val == nil or val == "" or val == "nil" then
+        return "null"
+    end
+    return '"' .. tostring(val):gsub('"', '\\"') .. '"'
+end
+
+local function to_json_number(val)
+    if val == nil or val == "" or val == "nil" then
+        return "null"
+    end
+    local num = tonumber(val)
+    if not num then return "null" end
+    return tostring(num)
+end
+
+local function sh(value)
+    if value == nil then return "''" end
+    return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
+local function hash_get(key)
+    local val = api:executeString("hash select/" .. key)
+    if val == nil or val == "" or val == "nil" or val == "_undef_" then
+        return nil
+    end
+    return val
+end
+
+local function hash_del(key)
+    api:executeString("hash delete/" .. key)
+end
+
+-- ---------------- DEDUP ----------------
+local processed_calls = {}
+
+-- ---------------- RECORDINGS DIR ----------------
+local recordings_dir = "/usr/local/freeswitch-prod-instance/recordings/"
+
+-- ---------------- MAIN LOOP ----------------
+while true do
+
+    local e = consumer:pop(1)
+
+    if e then
+
+        freeswitch.consoleLog("NOTICE", "\n===== HANGUP EVENT =====\n")
+
+        local cc_side   = gv(e, "variable_cc_side")
+        local unique_id = gv(e, "Unique-ID")
+
+        freeswitch.consoleLog("NOTICE", "cc_side: " .. tostring(cc_side) .. " | uuid: " .. tostring(unique_id) .. "\n")
+
+        -- Only process callcenter legs
+        if cc_side ~= "member" and cc_side ~= "agent" then
+            freeswitch.consoleLog("NOTICE", "Not a callcenter leg, skipping.\n")
+            goto continue
+        end
+
+        -- ---------------- FETCH call_log_id + caller ----------------
+        local call_log_id = nil
+        local caller      = nil
+
+            call_log_id = gv(e, "variable_call_log_id")
+                       or gv(e, "variable_callLogId")
+            caller      = gv(e, "variable_orig_caller")
+                       or gv(e, "variable_sip_h_X-Orig-Caller")
+
+
+        if not call_log_id or call_log_id == "" or call_log_id == "nil" then
+            freeswitch.consoleLog("NOTICE", "No valid call_log_id found, skipping.\n")
+            goto continue
+        end
+
+        -- ---------------- DEDUP ----------------
+        if processed_calls[call_log_id] then
+            freeswitch.consoleLog("NOTICE", "Already processed: " .. call_log_id .. "\n")
+            goto continue
+        end
+        processed_calls[call_log_id] = true
+
+        -- ---------------- COLLECT VARIABLES ----------------
+        local callee_number = gv(e, "variable_cc_agent")
+                           or gv(e, "Caller-Destination-Number")
+
+        if callee_number and #callee_number > 4 then
+            callee_number = nil
+        end
+        if callee_number and callee_number:match("^0") then
+            callee_number = nil
+        end
+
+        local recfilename  = gv(e, "variable_recfilename")
+        local hangup_cause = gv(e, "Hangup-Cause") or "UNKNOWN"
+        local billsec      = tonumber(gv(e, "variable_billsec")) or 0
+
+        local caller_joined_at = gv(e, "variable_start_stamp")
+        local caller_left_at   = gv(e, "variable_end_stamp")
+        if (caller == nil or caller == "") and (callee_number == nil or callee_number == "") then
+        return
+	end
+        -- answer_epoch = when agent actually answered
+        local callee_joined_at = epoch_to_utc(gv(e, "variable_answer_epoch"))
+        local callee_left_at   = nil
+        if callee_joined_at then
+            callee_left_at = caller_left_at
+        end
+
+        -- ---------------- STATUS ----------------
+        local status = "MISSED"
+
+        if hangup_cause == "USER_BUSY" then
+            status = "CLIENT_REJECT"
+        elseif hangup_cause == "NORMAL_CLEARING" and callee_joined_at ~= nil then
+            status = "ENDED"
+        elseif hangup_cause == "NO_ANSWER"
+            or hangup_cause == "ORIGINATOR_CANCEL"
+            or hangup_cause == "CALL_REJECTED"
+            or hangup_cause == "CONGESTION"
+            or hangup_cause == "BUSY" then
+            status = "MISSED"
+            billsec = 0
+        end
+       if callee_number then
+	status="ENDED"
+	else
+	status="MISSED"
+	end
+        -- No recording for missed calls
+        if status == "MISSED" then
+            recfilename = nil
+        end
+
+        -- Prepend full path and verify file exists
+        if recfilename and recfilename ~= "" and recfilename ~= "nil" then
+            recfilename = recordings_dir .. recfilename
+            local f = io.open(recfilename, "r")
+            if f then
+                f:close()
+                freeswitch.consoleLog("NOTICE", "Recording found: " .. recfilename .. "\n")
+            else
+                freeswitch.consoleLog("ERR", "Recording NOT found: " .. recfilename .. "\n")
+                recfilename = nil
+            end
+        else
+            recfilename = nil
+        end
+
+        -- ---------------- LOG ----------------
+        freeswitch.consoleLog("NOTICE", "call_log_id    : " .. call_log_id .. "\n")
+        freeswitch.consoleLog("NOTICE", "caller         : " .. tostring(caller) .. "\n")
+        freeswitch.consoleLog("NOTICE", "callee_number  : " .. tostring(callee_number) .. "\n")
+        freeswitch.consoleLog("NOTICE", "hangup_cause   : " .. hangup_cause .. "\n")
+        freeswitch.consoleLog("NOTICE", "status         : " .. status .. "\n")
+        freeswitch.consoleLog("NOTICE", "caller_joined  : " .. tostring(caller_joined_at) .. "\n")
+        freeswitch.consoleLog("NOTICE", "caller_left    : " .. tostring(caller_left_at) .. "\n")
+        freeswitch.consoleLog("NOTICE", "callee_joined  : " .. tostring(callee_joined_at) .. "\n")
+        freeswitch.consoleLog("NOTICE", "callee_left    : " .. tostring(callee_left_at) .. "\n")
+        freeswitch.consoleLog("NOTICE", "recfilename    : " .. tostring(recfilename) .. "\n")
+        freeswitch.consoleLog("NOTICE", "duration       : " .. tostring(billsec) .. "\n")
+
+        -- ---------------- BUILD CURL (multipart) ----------------
+        local tmp_out = "/tmp/prehangup_" .. call_log_id .. ".json"
+
+        local fields =
+            "-F " .. sh("call_id=" .. call_log_id) .. " " ..
+            "-F " .. sh("status="  .. status)      .. " " ..
+            "-F " .. sh("duration=" .. tostring(billsec))
+
+        if caller ~= nil then
+            fields = fields .. " -F " .. sh("caller=" .. caller)
+        end
+        if callee_number ~= nil then
+            fields = fields .. " -F " .. sh("callee_number=" .. callee_number)
+        end
+        if caller_joined_at ~= nil then
+            fields = fields .. " -F " .. sh("caller_joined_at=" .. caller_joined_at)
+        end
+        if caller_left_at ~= nil then
+            fields = fields .. " -F " .. sh("caller_left_at=" .. caller_left_at)
+        end
+        if callee_joined_at ~= nil then
+            fields = fields .. " -F " .. sh("callee_joined_at=" .. callee_joined_at)
+        end
+        if callee_left_at ~= nil then
+            fields = fields .. " -F " .. sh("callee_left_at=" .. callee_left_at)
+        end
+        if recfilename ~= nil then
+            fields = fields .. " -F " .. sh("file=@" .. recfilename)
+        end
+
+        local cmd =
+            "curl -k -s -X PUT 'https://wapis.discretal.com/calls/update-external-sip-call-details' " ..
+            fields ..
+            " > " .. tmp_out .. " 2>&1"
+
+        freeswitch.consoleLog("INFO", "Curl cmd: " .. cmd .. "\n")
+        os.execute(cmd)
+
+        local f = io.open(tmp_out, "r")
+        if f then
+            local response = f:read("*all")
+            f:close()
+            os.remove(tmp_out)
+            freeswitch.consoleLog("INFO", "API Response: " .. tostring(response) .. "\n")
+        else
+            freeswitch.consoleLog("ERR", "Could not read curl response\n")
+        end
+
+        freeswitch.consoleLog("NOTICE", "==============================\n")
+
+        ::continue::
+    end
+end

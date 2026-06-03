@@ -124,8 +124,10 @@
     <!-- <load module="mod_python"/> -->
     <!-- <load module="mod_python3"/> -->
     <!-- <load module="mod_java"/> -->
-    <load module="mod_lua"/>
 
+    <load module="mod_lua"/>
+    <load module="mod_audio_stream"/>
+   
     <!-- ASR /TTS -->
     <load module="mod_flite"/> 
     <!-- <load module="mod_pocketsphinx"/> -->
@@ -142,7 +144,7 @@
 
     <!-- Third party modules -->
     <!--<load module="mod_nibblebill"/>-->
-    <!--<load module="mod_callcenter"/>-->
+   -<load module="mod_callcenter"/>
 
   </modules>
 </configuration>

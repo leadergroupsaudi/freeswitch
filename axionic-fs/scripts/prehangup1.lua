@@ -1,0 +1,161 @@
+local api = freeswitch.API()
+
+-- 🔥 CREATE EVENT CONSUMER (FIXED ERROR)
+local consumer = freeswitch.EventConsumer("CHANNEL_HANGUP_COMPLETE")
+
+freeswitch.consoleLog("NOTICE", "Hangup Event Listener started...\n")
+
+-- ---------------- HELPERS ----------------
+
+local function gv(e, name)
+  return e:getHeader(name)
+end
+
+local function epoch_to_utc(epoch)
+  local n = tonumber(epoch)
+  if n then
+    return os.date("!%Y-%m-%d %H:%M:%S", n)
+  end
+  return nil
+end
+
+local function to_json_value(val)
+  if val == nil or val == "" then
+    return "null"
+  end
+  return '"' .. tostring(val) .. '"'
+end
+
+local function to_json_number(val)
+  if val == nil or val == "" then
+    return "null"
+  end
+
+  local num = tonumber(val)
+  if not num then
+    return "null"
+  end
+
+  return tostring(num)   -- NO quotes
+end
+-- ---------------- DEDUP TABLE ----------------
+local processed_calls = {}
+
+-- ---------------- MAIN LOOP ----------------
+while true do
+
+  local e = consumer:pop(1)
+
+  if e then
+
+    freeswitch.consoleLog("NOTICE", "\n===== HANGUP EVENT =====\n")
+
+    -- ----------- BASIC DATA -----------
+    local call_id = gv(e, "variable_callLogId")
+
+    if not call_id or call_id == "" or call_id == "unknown" then
+      freeswitch.consoleLog("NOTICE", "No valid callLogId found, skipping.\n")
+      goto continue
+    end
+
+    -- ----------- DEDUP CHECK -----------
+    if processed_calls[call_id] then
+      freeswitch.consoleLog("NOTICE", "Already processed callLogId: " .. call_id .. "\n")
+      goto continue
+    end
+    processed_calls[call_id] = true
+
+    -- ----------- COLLECT VARIABLES -----------
+
+    local caller = gv(e,"variable_orig_caller")
+                   or gv(e,"variable_sip_h_X-Orig-Caller")
+                   or gv(e,"variable_nolocal:sip_h_X-Orig-Caller")
+
+    local callee_number = gv(e,"variable_cc_agent")
+                          or gv(e,"Caller-Destination-Number")
+
+    -- 🔥 IMPORTANT LOGIC:
+    -- If callee number > 4 digits → make JSON null
+    if callee_number and #callee_number > 4 then
+      callee_number = nil
+    end
+
+    -- Skip if callee starts with 0 (safe check)
+    if callee_number and callee_number:match("^0") then
+      freeswitch.consoleLog("NOTICE", "Callee starts with 0, skipping.\n")
+      goto continue
+    end
+
+    local hangup_cause = gv(e,"Hangup-Cause") or "UNKNOWN"
+    local billsec = tonumber(gv(e,"variable_billsec")) or 0
+
+    local caller_joined_at = gv(e,"variable_start_stamp")
+    local caller_left_at   = gv(e,"variable_end_stamp")
+
+    local callee_joined_at = epoch_to_utc(gv(e,"variable_cc_queue_joined_epoch"))
+    local callee_left_at   = epoch_to_utc(gv(e,"variable_cc_queue_terminated_epoch"))
+
+    -- ----------- STATUS LOGIC -----------
+
+    local status = "MISSED"
+
+    if hangup_cause == "USER_BUSY" then
+      status = "CLIENT_REJECT"
+
+    elseif hangup_cause == "NORMAL_CLEARING" and callee_joined_at ~= nil then
+      status = "ENDED"
+
+    elseif hangup_cause == "NO_ANSWER"
+        or hangup_cause == "ORIGINATOR_CANCEL"
+        or hangup_cause == "CALL_REJECTED"
+        or hangup_cause == "CONGESTION"
+        or hangup_cause == "BUSY" then
+
+      status = "MISSED"
+      billsec = 0
+    end
+if callee_joined_at then
+    callee_left_at= tostring(calleer_left_at)
+end
+    -- ----------- LOG DATA -----------
+
+    freeswitch.consoleLog("NOTICE", "callLogId: " .. call_id .. "\n")
+    freeswitch.consoleLog("NOTICE", "Caller: " .. tostring(caller) .. "\n")
+    freeswitch.consoleLog("NOTICE", "Callee: " .. tostring(callee_number) .. "\n")
+    freeswitch.consoleLog("NOTICE", "Hangup Cause: " .. hangup_cause .. "\n")
+    freeswitch.consoleLog("NOTICE", "Status: " .. status .. "\n")
+    freeswitch.consoleLog("NOTICE", "Duration: " .. billsec .. "\n")
+
+    -- ----------- BUILD JSON -----------
+
+    local payload = '{'
+      .. '"call_id":'          .. to_json_value(call_id)          .. ','
+      .. '"caller":'           .. to_json_number(caller)           .. ','
+      .. '"callee_number":'    .. to_json_number(callee_number)    .. ','
+      .. '"caller_joined_at":' .. to_json_value(caller_joined_at) .. ','
+      .. '"caller_left_at":'   .. to_json_value(caller_left_at)   .. ','
+      .. '"callee_joined_at":' .. to_json_value(callee_joined_at) .. ','
+      .. '"callee_left_at":'   .. to_json_value(callee_left_at)   .. ','
+      .. '"status":'           .. to_json_value(status)           .. ','
+      .. '"duration":'         .. tostring(billsec)
+      .. '}'
+
+    freeswitch.consoleLog("INFO", "Payload: " .. payload .. "\n")
+
+    -- ----------- API CALL -----------
+
+    local curl_cmd = string.format(
+      "https://wapis.discretal.com/calls/update-external-sip-call-details put '%s' 'content-type: application/json'",
+      payload
+    )
+
+    freeswitch.consoleLog("INFO", "Executing Curl...\n")
+
+    local response = api:execute("curl", curl_cmd)
+
+    freeswitch.consoleLog("INFO", "API Response: " .. tostring(response) .. "\n")
+    freeswitch.consoleLog("NOTICE", "==============================\n")
+
+    ::continue::
+  end
+end

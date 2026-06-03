@@ -1,0 +1,67 @@
+-- Get calling agent
+local calling_agent = session:getVariable("caller_id_number")
+
+--local domain = "15.207.94.247"
+local domain = "zkff.automasw.com"
+
+-- Log incoming request
+freeswitch.consoleLog("INFO", "[CALL START] Caller: " .. tostring(calling_agent) .. "\n")
+
+-- Full agent list
+local agents = {
+    "1001","1002","1003","1004","1005",
+    "1006","1007","1008","1009","1010",
+    "1011","1012","1013","1014","1015",
+    "1016","1019","1020"
+}
+
+-- Build bridge string excluding the calling agent
+local targets = {}
+
+for _, agent in ipairs(agents) do
+    if agent ~= calling_agent then
+        local dial_str = "[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]" ..
+                         "user/" .. agent .. "@" .. domain
+
+        table.insert(targets, dial_str)
+
+        -- Log each agent being dialed
+        freeswitch.consoleLog("INFO", "[DIALING] Trying agent: " .. agent .. "\n")
+    else
+        freeswitch.consoleLog("INFO", "[SKIP] Ignoring calling agent: " .. agent .. "\n")
+    end
+end
+
+-- Create bridge string
+local bridge_string = table.concat(targets, "|")
+
+-- Log final bridge string
+freeswitch.consoleLog("INFO", "[BRIDGE STRING] " .. bridge_string .. "\n")
+
+-- Set variable for dialplan
+session:setVariable("agent_bridge_string", bridge_string)
+
+------------------------------------------------------------------
+-- AFTER BRIDGE EXECUTION (IMPORTANT PART)
+------------------------------------------------------------------
+
+-- You need to wait until bridge happens
+-- So we use hangup hook or check after bridge
+
+session:setHangupHook("hangup_hook")
+
+function hangup_hook(session, status)
+    local answered_agent = session:getVariable("bridge_to")
+    local hangup_cause = session:getVariable("hangup_cause")
+
+    freeswitch.consoleLog("INFO", "[CALL END] Caller: " .. tostring(calling_agent) .. "\n")
+    freeswitch.consoleLog("INFO", "[RESULT] Hangup cause: " .. tostring(hangup_cause) .. "\n")
+
+    if answered_agent then
+        freeswitch.consoleLog("INFO", "[ANSWERED BY] " .. tostring(answered_agent) .. "\n")
+    else
+        freeswitch.consoleLog("INFO", "[NO ANSWER] No agent answered\n")
+    end
+
+    return
+end

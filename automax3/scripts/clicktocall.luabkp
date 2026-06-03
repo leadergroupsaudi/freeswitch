@@ -1,0 +1,13 @@
+api = freeswitch.API();
+uuid = argv[1];
+callee = argv[2];
+caller_id = session:getVariable("caller_id_number");
+
+cmd = "create_uuid"
+bleg_uuid = api:executeString(cmd);
+freeswitch.consoleLog("INFO", "bleg_uuid = " .. tostring(bleg_uuid) .. "\n")
+local bridge_str = "{execute_on_answer=lua outbridge.lua " .. tostring(uuid) .. ",calltype=VoiceCallChatOutbound,groupID=TideM,team=Tide,skill=Tide,call_timeout=300,ring_ready=true,ringback=%(2000,4000,440.0,480.0),hangup_after_bridge=false,origination_caller_id_number=" .. tostring(caller_id) .. ",origination_caller_id_name=" .. tostring(caller_id) .. ",origination_uuid=" .. tostring(bleg_uuid) .. ",caller=" .. tostring(caller_id) .. ",callee=" .. tostring(callee) .. ",absolute_codec_string=PCMU,PCMA}user/" .. tostring(callee)
+
+session:setVariable("api_hangup_hook","lua hangup.lua       "..tostring(uuid).."    "..tostring(bleg_uuid));
+session:setVariable("session_in_hangup_hook",'true');
+session:execute("bridge",bridge_str);

@@ -25,7 +25,7 @@
  
     <queue name="ccm-ivrold@default">
 <param name="strategy" value="round-robin"/>
-<param name="moh-sound" value="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/ivr_audiofiles_tts_new/com_holdtone.wav"/>
+<param name="moh-sound" value="/usr/local/freeswitch/sounds/ivr_audiofiles_tts_new/com_holdtone.wav"/>
 <param name="record-template" value="$${recordings_dir}/IVR-CCM-Recordings/${uuid}_${caller_id_number}_${sip_h_X-CallLogId}.wav"/>
 <param name="time-base-score" value="system"/>
 <param name="max-wait-time" value="60"/> <!-- Time caller waits in the queue -->
@@ -41,9 +41,9 @@
  
  
     <queue name="ccm-ivr@default">
-<param name="strategy" value="round-robin"/>
+<param name="strategy" value="top-down"/>
 <!--<param name="moh-sound" value="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/ivr_audiofiles_qa/HoldTone.wav"/>-->
-<param name="moh-sound" value="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/ivr_audiofiles_tts_new/com_holdtone.wav"/>
+<param name="moh-sound" value="/usr/local/freeswitch/sounds/ivr_audiofiles_tts_new/com_holdtone.wav"/>
 <param name="record-template" value="$${recordings_dir}/IVR-CCM-Recordings/${uuid}_${caller_id_number}_${sip_h_X-CallLogId}.wav"/>
 <param name="time-base-score" value="system"/>
 <param name="max-wait-time" value="60"/> <!---from 30 to 60 -->
@@ -57,7 +57,25 @@
 <param name="abandoned-resume-allowed" value="false"/>
 <param name="agent_timeout" value="20"/> <!-- Agent timeout in seconds -->
 </queue>
- 
+
+    <queue name="ccm-transfer@default">
+<param name="strategy" value="top-down"/>
+<param name="moh-sound" value="/usr/local/freeswitch/sounds/ivr_audiofiles_tts_new/com_holdtone.wav"/>
+<param name="record-template" value="$${recordings_dir}/IVR-CCM-Recordings/${uuid}_${caller_id_number}_${sip_h_X-CallLogId}.wav"/>
+<param name="execute-on-answer" value="lua ivr_outbridge.lua"/>
+<param name="time-base-score" value="system"/>
+<param name="max-wait-time" value="300"/> 
+<param name="max-wait-time-with-no-agent" value="5"/>
+<param name="max-wait-time-with-no-agent-time-reached" value="5"/>
+<param name="tier-rules-apply" value="false"/>
+<param name="tier-rule-wait-second" value="120"/>
+<param name="tier-rule-wait-multiply-level" value="true"/>
+<param name="tier-rule-no-agent-no-wait" value="false"/>
+<param name="discard-abandoned-after" value="30"/>
+<param name="abandoned-resume-allowed" value="false"/>
+<param name="agent_timeout" value="20"/> 
+</queue>
+
     <queue name="ccm-ivr-kff@default">
 <param name="strategy" value="round-robin"/>
 <!--<param name="moh-sound" value="/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/ivr_audiofiles_qa/HoldTone.wav"/>-->
@@ -82,27 +100,66 @@
 <!-- WARNING: Configuration of XML Agents will be updated into the DB upon restart. -->
 <!-- WARNING: Configuration of XML Tiers will reset the level and position if those were supplied. -->
 <!-- WARNING: Agents and Tiers XML config shouldn't be used in a multi FS shared DB setup (Not currently supported anyway) -->
-<agent name="2000" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/2000@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
-<agent name="2001" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/2001@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
-<agent name="2002" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/2002@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
-<agent name="3000" type="callback" contact="[abisolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/3000@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
-<agent name="3001" type="callback" contact="[absolute_codec_string='OPUS,PCMU,PCMA,G722',leg_timeout=20]user/3001@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
-<agent name="3002" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/3002@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
-<agent name="3003" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/3003@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
-<agent name="3004" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/3004@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
-<agent name="3006" type="callback" contact="[absolute_codec_string='OPUS,PCMU,PCMA,G722',leg_timeout=20]user/3006@leaderfs.axionic.io" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
-</agents>
+<agent name="1001" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1001@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1002" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1002@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1003" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1003@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1004" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1004@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1005" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1005@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1006" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1006@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1007" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1007@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1008" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1008@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1009" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1009@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1010" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1010@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1011" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1011@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1012" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1012@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1013" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1013@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1014" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1014@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1015" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1015@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1016" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1016@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1017" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1017@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1018" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1018@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1019" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1019@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+<agent name="1020" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1020@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="3" reject-delay-time="10" busy-delay-time="10" no-answer-delay-time="3" />
+
+<agent name="1101" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=15]user/1101@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="0" reject-delay-time="1" busy-delay-time="1" no-answer-delay-time="1" />
+<agent name="1102" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=15]user/1102@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="0" reject-delay-time="1" busy-delay-time="1" no-answer-delay-time="1" />
+<agent name="1103" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=15]user/1103@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="0" reject-delay-time="1" busy-delay-time="1" no-answer-delay-time="1" />
+<agent name="1104" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=15]user/1104@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="0" reject-delay-time="1" busy-delay-time="1" no-answer-delay-time="1" />
+<agent name="1105" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=15]user/1105@zkff.automaxsw.com" status="Available" max-no-answer="100" wrap-up-time="0" reject-delay-time="1" busy-delay-time="1" no-answer-delay-time="1" />
+<!--<agent name="1017" type="callback" contact="[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=20]user/1017@zkff.automaxsw.com" status="Available" max-no-answer="2" wrap-up-time="20" reject-delay-time="20" busy-delay-time="20" />
+	-->
+	</agents>
  
 <tiers>
-<tier agent="2000" queue="ccm-ivr@default" level="1" position="1"/>
-<tier agent="2001" queue="ccm-ivr@default" level="1" position="1"/>
-<tier agent="2002" queue="ccm-ivr@default" level="1" position="1"/>
-<tier agent="3000" queue="ccm-ivr@default" level="1" position="1"/>
-<tier agent="3001" queue="ccm-ivr@default" level="1" position="1"/>
-<tier agent="3002" queue="ccm-ivr@default" level="1" position="1"/>
-<tier agent="3003" queue="ccm-ivr@default" level="1" position="1"/>
-<tier agent="3004" queue="ccm-ivr@default" level="1" position="1"/>
-<tier agent="3006" queue="ccm-ivr@default" level="1" position="1"/>
+
+
+<tier agent="1001" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1002" queue="ccm-ivr@default" level="1" position="1"/>
+
+<tier agent="1004" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1003" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1005" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1006" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1007" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1008" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1009" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1010" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1011" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1012" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1013" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1014" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1015" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1016" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1017" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1018" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1019" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1020" queue="ccm-ivr@default" level="1" position="1"/>
+<tier agent="1101" queue="ccm-transfer@default" level="1" position="1"/>
+<tier agent="1102" queue="ccm-transfer@default" level="1" position="1"/>
+<tier agent="1103" queue="ccm-transfer@default" level="1" position="1"/>
+<tier agent="1104" queue="ccm-transfer@default" level="1" position="1"/>
+<tier agent="1105" queue="ccm-transfer@default" level="1" position="1"/>
+
 </tiers>
  
  

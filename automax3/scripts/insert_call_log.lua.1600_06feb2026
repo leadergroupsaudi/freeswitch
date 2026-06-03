@@ -1,0 +1,91 @@
+local json = require "lunajson"
+local https = require("ssl.https")
+local ltn12 = require("ltn12")
+
+-------------------authentication -------------------------
+-- STEP 1: GET BEARER TOKEN
+local function get_token()
+    local api = freeswitch.API()
+    local payload = '{"email":"admin@automax.com","password":"admin123"}'
+
+    local curl_cmd = "https://ax3.automaxsw.com/api/v1/auth/login content-type application/json post " .. payload
+
+    freeswitch.consoleLog("INFO", "Executing: curl " .. curl_cmd .. "\n")
+
+    local result = api:executeString("curl " .. curl_cmd)
+
+    freeswitch.consoleLog("INFO", "CURL Result: " .. tostring(result) .. "\n")
+
+    return result
+end
+-- Build participants as strings
+local participants = {}
+if callee and callee ~= "" then
+    table.insert(participants, tostring(callee))
+end
+if caller and caller ~= "" then
+    table.insert(participants, tostring(caller))
+end
+
+local joined_users = {}
+local invited_users = {}
+
+local answered = session:getVariable("answertime")
+if answered and answered ~= "" then
+    table.insert(joined_users, tostring(callee))
+else
+    table.insert(invited_users, tostring(callee))
+end
+
+-- Build payload
+local payload = {
+    call_uuid = tostring(call_uuid),
+    created_by = tostring(created_by),
+    status = tostring(call_status),
+    start_at = tostring(start_at),
+    participants = participants,
+    joined_users = joined_users,
+    invited_users = invited_users
+}
+
+-- Use lunajson to encode
+local json_payload = json.encode(payload)
+
+freeswitch.consoleLog("INFO", "JSON Payload: " .. json_payload .. "\n")
+
+local api_url = "https://ax3.automaxsw.com/api/v1/admin/call-logs"
+
+local response_body = {}
+local token_json, err = get_token()
+local data = json.decode(token_json)
+access_token = data["data"]["token"]
+session:setVariable("access_token",access_token)
+local res, code, response_headers, status = https.request{
+    url = api_url,
+    method = "POST",
+    headers = {
+        ["Content-Type"] = "application/json",
+        ["Authorization"] = "Bearer " .. access_token,
+        ["Content-Length"] = tostring(#json_payload)
+    },
+    source = ltn12.source.string(json_payload),
+    sink = ltn12.sink.table(response_body)
+}
+
+local response_text = table.concat(response_body)
+
+freeswitch.consoleLog("INFO", "HTTP Status: " .. tostring(code) .. "\n")
+freeswitch.consoleLog("INFO", "Response: " .. response_text .. "\n")
+
+if code == 200 or code == 201 then
+    local success, decoded = pcall(json.decode, response_text)
+    if success and decoded then
+        local callLogID = decoded.id or (decoded.data and decoded.data.id)
+        if callLogID then
+            freeswitch.consoleLog("INFO", "Call log ID: " .. callLogID .. "\n")
+            api:executeString("uuid_setvar " .. uuid .. " callLogID " .. callLogID)
+        end
+    end
+else
+    freeswitch.consoleLog("ERR", "API failed: " .. response_text .. "\n")
+end

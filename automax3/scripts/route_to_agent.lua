@@ -1,0 +1,127 @@
+-- Get the calling agent
+local calling_agent = session:getVariable("caller_id_number")
+local domain = "15.207.94.247"
+local max_retries = 3
+local ring_timeout = 20
+
+freeswitch.consoleLog("INFO", "===========================================\n")
+freeswitch.consoleLog("INFO", "AGENT ROUTING START\n")
+freeswitch.consoleLog("INFO", "Calling Agent (excluded): " .. tostring(calling_agent) .. "\n")
+freeswitch.consoleLog("INFO", "===========================================\n")
+
+-- Full agent list
+local agents = {
+    "1001","1002","1003","1004","1005",
+    "1006","1007","1008","1009","1010",
+    "1011","1012","1013","1014","1015",
+    "1016","1017","1018","1999","1019","1020"
+}
+
+-- Helper: check if agent is registered via sofia_contact
+local function is_agent_available(agent)
+    local contact = freeswitch.API():execute("sofia_contact", agent .. "@" .. domain)
+    freeswitch.consoleLog("INFO", "sofia_contact[" .. agent .. "]: " .. tostring(contact) .. "\n")
+    if not contact or contact == "" or contact:find("error") or contact:find("ERR") then
+        return false
+    end
+    return true
+end
+
+-- Build initial agent pool (exclude calling agent + offline agents)
+local targets = {}
+for _, agent in ipairs(agents) do
+    if agent == calling_agent then
+        freeswitch.consoleLog("INFO", "SKIPPED calling agent: " .. agent .. "\n")
+    elseif not is_agent_available(agent) then
+        freeswitch.consoleLog("INFO", "SKIPPED unavailable agent: " .. agent .. "\n")
+    else
+        table.insert(targets,
+            "[absolute_codec_string='PCMU,PCMA,G722',leg_timeout=" .. ring_timeout .. "]user/" .. agent .. "@" .. domain)
+        freeswitch.consoleLog("INFO", "Added agent to pool: " .. agent .. "\n")
+    end
+end
+
+freeswitch.consoleLog("INFO", "Total agents in initial pool: " .. #targets .. "\n")
+
+if #targets == 0 then
+    freeswitch.consoleLog("WARNING", "No agents available after excluding " .. tostring(calling_agent) .. "\n")
+    session:setVariable("no_agents_available", "true")
+    return
+end
+
+local answered = false
+
+for attempt = 1, max_retries do
+
+    if not session:ready() then
+        freeswitch.consoleLog("INFO", "Caller hung up before attempt " .. attempt .. "\n")
+        return
+    end
+
+    freeswitch.consoleLog("INFO", "-------------------------------------------\n")
+    freeswitch.consoleLog("INFO", "ATTEMPT " .. attempt .. " of " .. max_retries .. "\n")
+    freeswitch.consoleLog("INFO", "-------------------------------------------\n")
+
+    -- Re-check availability on each retry (agents may have gone offline)
+    local live_targets = {}
+    for _, target in ipairs(targets) do
+        local agent_num = target:match("user/(%d+)@")
+        if is_agent_available(agent_num) then
+            table.insert(live_targets, target)
+            freeswitch.consoleLog("INFO", "  [" .. #live_targets .. "] Agent online: " .. tostring(agent_num) .. "\n")
+        else
+            freeswitch.consoleLog("INFO", "  SKIPPED (went offline): " .. tostring(agent_num) .. "\n")
+        end
+    end
+
+    -- *** FIX: plain if/else instead of goto ***
+    if #live_targets == 0 then
+        freeswitch.consoleLog("WARNING", "No agents online on attempt " .. attempt .. "\n")
+        if attempt < max_retries then
+            session:execute("sleep", "2000")
+        end
+    else
+        local bridge_string = table.concat(live_targets, "|")
+        freeswitch.consoleLog("INFO", "Bridge string: " .. bridge_string .. "\n")
+
+        session:execute("bridge", bridge_string)
+
+        local bridge_cause = session:getVariable("bridge_hangup_cause")
+        local dial_status  = session:getVariable("DIALSTATUS")
+        local last_bridge  = session:getVariable("last_bridge_to")
+
+        freeswitch.consoleLog("INFO", "-------------------------------------------\n")
+        freeswitch.consoleLog("INFO", "ATTEMPT " .. attempt .. " RESULT:\n")
+        freeswitch.consoleLog("INFO", "  DIALSTATUS         : " .. tostring(dial_status) .. "\n")
+        freeswitch.consoleLog("INFO", "  bridge_hangup_cause: " .. tostring(bridge_cause) .. "\n")
+        freeswitch.consoleLog("INFO", "  last_bridge_to     : " .. tostring(last_bridge) .. "\n")
+        freeswitch.consoleLog("INFO", "-------------------------------------------\n")
+
+        if dial_status == "SUCCESS" then
+            answered = true
+            freeswitch.consoleLog("INFO", "SUCCESS - Call answered on attempt " .. attempt .. "\n")
+            freeswitch.consoleLog("INFO", "Connected agent: " .. tostring(last_bridge) .. "\n")
+            break
+        end
+
+        if attempt < max_retries then
+            freeswitch.consoleLog("INFO", "All agents rejected on attempt " .. attempt .. " - waiting 2s before retry...\n")
+            session:execute("sleep", "2000")
+            if not session:ready() then
+                freeswitch.consoleLog("INFO", "Caller hung up during retry wait after attempt " .. attempt .. "\n")
+                return
+            end
+        end
+    end
+end
+
+if not answered then
+    freeswitch.consoleLog("WARNING", "===========================================\n")
+    freeswitch.consoleLog("WARNING", "NO AGENT ANSWERED after " .. max_retries .. " attempts\n")
+    freeswitch.consoleLog("WARNING", "===========================================\n")
+    session:setVariable("no_agent_answered", "true")
+else
+    freeswitch.consoleLog("INFO", "===========================================\n")
+    freeswitch.consoleLog("INFO", "ROUTING COMPLETE - Call successfully connected\n")
+    freeswitch.consoleLog("INFO", "===========================================\n")
+end

@@ -1,92 +1,175 @@
 local api = freeswitch.API()
-
 local uuid = tostring(argv[1])
-local ext = tostring(argv[2])
-ext= "1002"
+local ext  = tostring(argv[2])
+
 freeswitch.consoleLog("INFO", "EXT = " .. tostring(ext) .. "\n")
 freeswitch.consoleLog("INFO", "UUID = " .. tostring(uuid) .. "\n")
 
+local created_by = session:getVariable("caller_id_number")
+local time = os.date("%Y-%m-%d %H:%M:%S")
 
--- 1) CHECK REGISTRATION
-local contact_status = api:executeString("sofia_contact " .. ext)
+api:executeString("uuid_setvar " .. uuid .. " start_at " .. time)
 
-local is_registered = true
-if string.match(contact_status, "error/user_not_registered") then
-    is_registered = false
+freeswitch.consoleLog("INFO", "start_at = " .. tostring(time) .. "\n")
+freeswitch.consoleLog("INFO", "created_by = " .. tostring(created_by) .. "\n")
+
+
+--[[
+session:setVariable("recording_follow_transfer", "true")
+
+local recfilename = uuid .. ".wav"
+
+session:setVariable("recfilename", recfilename)
+
+local recording_path = "/usr/local/freeswitch/recordings/" .. recfilename
+
+freeswitch.consoleLog("INFO", "Recording file: " .. recording_path .. "\n")
+
+session:execute("record_session", recording_path)
+]]
+-- ================================================
+-- HELPER: Check if extension is in a BRIDGED call
+-- ================================================
+local function is_ext_busy(extension, current_uuid)
+    local calls_info = api:executeString("show calls as json")
+  --  freeswitch.consoleLog("INFO", "show calls result: " .. tostring(calls_info) .. "\n")
+
+    if not calls_info or calls_info == "" then
+        return false
+    end
+
+    for block in calls_info:gmatch('{[^}]+}') do
+        if not block:find(current_uuid) then
+            local b_uuid = block:match('"b_uuid"%s*:%s*"([^"]+)"')
+            local b_dest = block:match('"b_dest"%s*:%s*"([^"]+)"')
+            local dest   = block:match('"dest"%s*:%s*"([^"]+)"')
+            local b_cid  = block:match('"b_cid_num"%s*:%s*"([^"]+)"')
+
+            freeswitch.consoleLog("INFO",
+                "Checking block — b_uuid:" .. tostring(b_uuid) ..
+                " dest:" .. tostring(dest) ..
+                " b_dest:" .. tostring(b_dest) ..
+                " b_cid:" .. tostring(b_cid) .. "\n"
+            )
+
+            if b_uuid and b_uuid ~= "" then
+                if dest == extension or b_dest == extension or b_cid == extension then
+                    freeswitch.consoleLog("INFO",
+                        "Extension " .. extension .. " is in an active bridged call.\n"
+                    )
+                    return true
+                end
+            end
+        end
+    end
+    return false
 end
 
--- 2) CHECK ACTIVE CALL
-local channel_info = api:executeString("show channels like " .. ext)
-local in_call = false
+-- ================================================
+-- 1) CHECK IF EXTENSION IS REGISTERED
+-- ================================================
+local reg_check = api:executeString("sofia_contact " .. ext)
+freeswitch.consoleLog("INFO", "sofia_contact result: " .. tostring(reg_check) .. "\n")
 
-if string.find(channel_info, ext) then
-    in_call = true
-end
-
--- 3) DETERMINE STATUS
-local call_status = ""
+local is_registered = reg_check and
+                      reg_check ~= "" and
+                      not reg_check:find("^error") and
+                      not reg_check:find("^-ERR")
 
 if not is_registered then
-    call_status = "offline"
-elseif in_call then
-    call_status = "in_call"
-else
-    call_status = "available"
+    freeswitch.consoleLog("INFO",
+        "Extension " .. ext .. " is not registered. Playing offline.wav\n"
+    )
+    if session:ready() then
+        session:execute("playback", "/usr/local/freeswitch/sounds/ivr_audiofiles_tts_new/offline.wav"
+        )
+        session:hangup("USER_NOT_REGISTERED")
+    end
+    return
 end
 
--- 4) UPDATE UUID VARIABLE
-local cmd = "uuid_setvar " .. uuid .. " call_status " .. call_status
-freeswitch.consoleLog("NOTICE", "Notification cmd: " .. cmd .. "\n")
-local a = api:executeString(cmd)
+freeswitch.consoleLog("INFO", "Extension " .. ext .. " is registered.\n")
 
--- 5) PRINT RESULT (FIXED)
+-- ================================================
+-- 2) CHECK IF EXTENSION IS BUSY
+-- ================================================
+local in_call = is_ext_busy(ext, uuid)
+
 freeswitch.consoleLog("INFO",
     "Extension " .. ext ..
-    " | Registered: " .. tostring(is_registered) ..
-    " | In Call: " .. tostring(in_call) ..
-    " | Status: " .. call_status .. "\n"
+    " | In Call: " .. tostring(in_call) .. "\n"
 )
-function table_to_json(tbl)
-    local json = "{"
-    local first = true
-    for k, v in pairs(tbl) do
-        if not first then json = json .. "," end
-        json = json .. string.format('"%s":"%s"', k, v)
-        first = false
+
+-- ================================================
+-- 3) SET UUID VARIABLE
+-- ================================================
+local call_status = in_call and "in_call" or "available"
+api:executeString("uuid_setvar " .. uuid .. " call_status " .. call_status)
+
+-- ================================================
+-- 4) IF BUSY — PLAY BUSY AUDIO IN A LOOP FOR 60s
+--    Uses session:execute("playback", ...) so audio
+--    actually plays on the channel reliably.
+-- ================================================
+if in_call then
+    freeswitch.consoleLog("INFO",
+        "Extension " .. ext .. " is busy. Starting 60s busy IVR loop.\n"
+    )
+
+    local start_time = os.time()
+    local timeout    = 60
+    local is_free    = false
+
+    while os.time() - start_time < timeout do
+
+        -- Guard: caller hung up
+        if not session:ready() then
+            freeswitch.consoleLog("INFO", "Caller hung up during busy IVR.\n")
+            return
+        end
+
+        -- Recheck if extension is free BEFORE playing
+        if not is_ext_busy(ext, uuid) then
+            freeswitch.consoleLog("INFO",
+                "Extension " .. ext .. " is now free after " ..
+                (os.time() - start_time) .. "s.\n"
+            )
+            api:executeString("uuid_setvar " .. uuid .. " call_status available")
+            is_free = true
+            break
+        end
+
+        -- Still busy: play busy tone via session:execute (blocking, reliable)
+        freeswitch.consoleLog("INFO",
+            "Extension " .. ext .. " still busy — playing busy_call.wav\n"
+        )
+        session:execute("playback", "/usr/local/freeswitch/sounds/ivr_audiofiles_tts_new/busy_call.wav"
+        )
+
+        -- Small pause between plays so we can recheck promptly
+        if session:ready() then
+            session:execute("sleep", "500")
+        end
     end
-    json = json .. "}"
-    return json
-end
 
--- Build payload
-local payload_table = { call_status = call_status }
-local payload = table_to_json(payload_table)
---local payload = { call_status =call_status}
+    if is_free then
+        freeswitch.consoleLog("INFO",
+            "Extension " .. ext .. " is now free. Continuing call.\n"
+        )
+    else
+        -- 60s elapsed and still busy
+        if session:ready() then
+            freeswitch.consoleLog("INFO",
+                "60s timeout — extension " .. ext .. " still busy. Hanging up.\n"
+            )
+            api:executeString("uuid_setvar " .. uuid .. " call_status timeout")
+            session:execute("playback", "ivr/ivr-please_try_again_later.wav")
+            session:hangup("USER_BUSY")
+        end
+    end
 
-freeswitch.consoleLog("INFO", "JSON Payload: " .. payload .. "\n")
-
--- Make HTTP POST request using FreeSWITCH curl
-local api_url = "https://epmstg.automaxsw.com/api/system/users/" .. ext .. "/status"
-
-
--- Use FreeSWITCH API to make the call with Accept header
-local curl_cmd1 = string.format(
-    "%s content-type application/json header 'Accept: application/json' post '%s'",
-    api_url,
-    payload
-)
-
-freeswitch.consoleLog("INFO", "Final curl cmd: " .. curl_cmd1 .. "\n")
-
-local response1 = api:executeString("curl " .. curl_cmd1)
-
-freeswitch.consoleLog("INFO", "API Response1: " .. tostring(response1) .. "\n")
-
--- Check response
-if response and response  ~= "" then
-    freeswitch.consoleLog("INFO", "Call log API request successful\n")
-    freeswitch.consoleLog("INFO", "Response body: " .. response .. "\n")
 else
-    freeswitch.consoleLog("WARNING", "Call log API returned empty response\n")
+    freeswitch.consoleLog("INFO",
+        "Extension " .. ext .. " is available. No busy IVR needed.\n"
+    )
 end
-

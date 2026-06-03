@@ -1,0 +1,378 @@
+local api = freeswitch.API()
+local json = freeswitch.JSON()
+local json = require "lunajson"
+local http = require("socket.http")
+local ltn12 = require("ltn12")
+
+
+local call_uuid = argv[1]
+local UUID = argv[1]
+
+--if not uuid or uuid == "" then
+--    freeswitch.consoleLog("ERR", "Usage: lua hup_both.lua <uuid>\n")
+--    return
+--end
+
+local call_uuid =tostring(session:getVariable("UUID"));
+local agent_name = session:getVariable("variable_cc_agent") or ""
+local caller = session:getVariable("caller_id_number") or ""
+local duration = tonumber(session:getVariable("billsec"))
+local hangup_cause = session:getVariable("hangup_cause")
+local recfilename = session:getVariable("recfilename");
+
+caller = session:getVariable("caller_id_number")
+local caller2 =session:getVariable("ani")
+
+ callee = session:getVariable("destination_number")
+local agent_uuid = session:getVariable("cc_agent_uuid")
+
+ callee_joined_at = session:getVariable("answertime")
+local callog_id = session:getVariable("callLogID")
+
+local call_status = session:getVariable("call_status")
+
+
+--freeswitch.consoleLog("INFO", ":callLogID " .. tostring(id) .. "\n")
+
+freeswitch.consoleLog("INFO", "call_status at: " .. tostring(call_status) .. "\n")
+freeswitch.consoleLog("INFO", "hangup_cause at: " .. tostring(hangup_cause) .. "\n")
+freeswitch.consoleLog("INFO", "recfilename: " .. tostring(recfilename) .. "\n")
+
+local joined_at = session:getVariable("cc_queue_joined_epoch")
+local terminated_at = session:getVariable("cc_queue_terminated_epoch")
+-- Get the Callee/Destination Number (using common variable names)
+
+local caller_joined_at = tostring(session:getVariable("start_at"))
+
+start_at =tostring(caller_joined_at or ""):gsub(" ", "T") .. "Z"
+local participants = tostring(callee) .. "," .. tostring(caller)
+created_by= caller;
+
+freeswitch.consoleLog("INFO", "Participants = " .. participants .. "\n")
+
+local caller_left_at = tostring(session:getVariable("end_stamp"))
+local callee_left_at = tostring(session:getVariable("end_stamp"))
+end_at =tostring(caller_left_at or ""):gsub(" ", "T") .. "Z"
+local callee_number  = tostring(session:getVariable("destination_number"))
+local callee_num2 =session:getVariable("destination_number")
+freeswitch.consoleLog("INFO", "billsec at: " .. tostring(duration) .. "\n")
+freeswitch.consoleLog("INFO", "caller_joined_at at: " .. tostring(caller_joined_at) .. "\n")
+
+freeswitch.consoleLog("INFO", "end at at: " .. tostring(end_at) .. "\n")
+freeswitch.consoleLog("INFO", "start at : " .. tostring(start_at) .. "\n")
+
+-- ================== Helpers ==================
+
+local function safe(v)
+    if v == nil or v == "" then return nil end
+    return v
+end
+
+local function to_iso(ts)
+    if not ts or ts == "" then return nil end
+    return tostring(ts):gsub(" ", "T") .. "Z"
+end
+
+local function encode_json(data)
+    local function esc(s)
+        s = tostring(s)
+        s = s:gsub("\\", "\\\\"):gsub('"', '\\"')
+        return '"' .. s .. '"'
+    end
+
+    local function arr(t)
+        local o = {}
+        for _,v in ipairs(t) do
+            table.insert(o, type(v)=="number" and v or esc(v))
+        end
+        return "[" .. table.concat(o, ",") .. "]"
+    end
+
+    local function obj(t)
+        local o = {}
+        for k,v in pairs(t) do
+            if v ~= nil then
+                local val
+                if type(v)=="table" then
+                    val = arr(v)
+                elseif type(v)=="number" then
+                    val = v
+                else
+                    val = esc(v)
+                end
+                table.insert(o, esc(k) .. ":" .. val)
+            end
+        end
+        return "{" .. table.concat(o, ",") .. "}"
+    end
+
+    return obj(data)
+end
+
+
+
+-- ================== Participants ==================
+
+local participants = {}
+if tonumber(callee) then table.insert(participants, tonumber(callee)) end
+if tonumber(caller) then table.insert(participants, tonumber(caller)) end
+
+-- ================== Joined / Invited ==================
+
+local joined_users  = {}
+local invited_users = {}
+
+local answered = session:getVariable("answertime")
+
+if answered and answered ~= "" then
+    table.insert(joined_users, tonumber(callee))
+else
+    table.insert(invited_users, tonumber(callee))
+end
+
+-- ================== Status Logic (CLEAN) ==================
+-- ================== Get All Cause Variables ==================
+
+local hangup_cause         = session:getVariable("hangup_cause")
+local bridge_hangup_cause  = session:getVariable("bridge_hangup_cause")
+local sip_hangup_cause     = session:getVariable("last_bridge_proto_specific_hangup_cause")
+local originate_disp       = session:getVariable("originate_disposition")
+
+freeswitch.consoleLog("INFO", "hangup_cause: "        .. tostring(hangup_cause) .. "\n")
+freeswitch.consoleLog("INFO", "bridge_hangup_cause: " .. tostring(bridge_hangup_cause) .. "\n")
+freeswitch.consoleLog("INFO", "sip_hangup_cause: "    .. tostring(sip_hangup_cause) .. "\n")
+freeswitch.consoleLog("INFO", "originate_disp: "      .. tostring(originate_disp) .. "\n")
+
+-- ================== Status Logic ==================
+-- ================== Get All Cause Variables ==================
+
+local hangup_cause        = session:getVariable("hangup_cause")
+local bridge_hangup_cause = session:getVariable("bridge_hangup_cause")
+local sip_hangup_cause    = session:getVariable("last_bridge_proto_specific_hangup_cause")
+local originate_disp      = session:getVariable("originate_disposition")
+
+freeswitch.consoleLog("INFO", "hangup_cause: "        .. tostring(hangup_cause) .. "\n")
+freeswitch.consoleLog("INFO", "bridge_hangup_cause: " .. tostring(bridge_hangup_cause) .. "\n")
+freeswitch.consoleLog("INFO", "sip_hangup_cause: "    .. tostring(sip_hangup_cause) .. "\n")
+freeswitch.consoleLog("INFO", "originate_disp: "      .. tostring(originate_disp) .. "\n")
+
+-- ================== Status Logic ==================
+
+status = "missed"  -- default
+
+if hangup_cause == "USER_NOT_REGISTERED" or
+   hangup_cause == "SUBSCRIBER_ABSENT" then
+    -- ✅ User offline
+    status = "offline"
+
+elseif hangup_cause == "USER_BUSY" or
+       sip_hangup_cause == "sip:486" then
+    if bridge_hangup_cause ~= nil and bridge_hangup_cause ~= "nil" then
+        status = "busy"
+    else
+        status = "declined"
+    end
+
+elseif hangup_cause == "CALL_REJECTED" or
+       sip_hangup_cause == "sip:603" or
+       sip_hangup_cause == "603" then
+    -- ✅ Hard decline (603)
+    status = "declined"
+
+elseif sip_hangup_cause == "sip:480" and
+       originate_disp == "NO_USER_RESPONSE" then
+    -- ✅ YOUR PHONE'S DECLINE — sends 480 + NO_USER_RESPONSE
+    status = "declined"
+
+elseif originate_disp == "ORIGINATOR_CANCEL" or
+       hangup_cause == "ORIGINATOR_CANCEL" then
+    -- ✅ Caller hung up before answer
+    status = "cancelled"
+
+elseif hangup_cause == "NO_ANSWER" or originate_disp == "NO_ANSWER" then
+    -- ✅ Rang but nobody answered (timeout)
+    status = "missed"
+
+elseif hangup_cause == "NORMAL_CLEARING" then
+    if callee_joined_at and callee_joined_at ~= ""
+       and callee_joined_at ~= "null" then
+        -- ✅ Call was answered and completed normally
+        status = "completed"
+    else
+        -- ✅ Cleared before answer
+        status = "cancelled"
+    end
+end
+
+freeswitch.consoleLog("INFO", "Final status: " .. tostring(status) .. "\n")
+
+-------------------authentication -------------------------
+session:execute("bgsystem","chmod -R 777 /usr/local/freeswitch/recordings/"..tostring(recfilename));
+-- STEP 1: GET BEARER TOKEN
+ local function get_token1()
+        local curl_command1 = [[curl -s -k -X POST \
+          -d "scope=profile+api&grant_type=client_credentials" \
+          -H "Content-Type: application/x-www-form-urlencoded" \
+          -H "Authorization: Basic NDQxMTE5NzQ5MTM4NDE1NjE3OmxKVER1dENxUHljSUVJVUxYZ29JamF2S3NvZ1dtNEZDSmNXeHhiNExFbXJxcWtrblN1eVM5MDU4UGtTREpyWjc=" \
+          https://automax.discretal.com/auth/oauth2/token]]
+        local curl_command = [[curl --location 'https://epmstg.automaxsw.com/auth/oauth2/token' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Authorization: Basic NDcyMzIwMDQ4Mzk3MDI1MjgxOlRIaGt6bW9lMjd6YnRMUlIwMjdCS2xMRWV0OGtoanNBTWtCMUV3UW9TUVJJa1FlaEkxNTJlOVdDQlI2NWtZMHA=' \
+--data-urlencode 'grant_type=client_credentials' \
+--data-urlencode 'scope=profile api' ]]
+        local handle = io.popen(curl_command)
+        local result = handle:read("*a")
+        handle:close()
+        
+        return result
+    end
+    -- STEP 1: GET BEARER TOKEN
+local function get_token()
+    local api = freeswitch.API()
+    local payload = '{"email":"admin@automax.com","password":"admin123"}'
+
+
+    --local curl_cmd = "https://ax3.automaxsw.com/api/v1/auth/login content-type application/json post " .. payload
+    local curl_cmd = "https://epmstg.automaxsw.com/api/v1/auth/login content-type application/json post " .. payload
+
+    freeswitch.consoleLog("INFO", "Executing: curl " .. curl_cmd .. "\n")
+
+    local result = api:executeString("curl " .. curl_cmd)
+
+    freeswitch.consoleLog("INFO", "CURL Result: " .. tostring(result) .. "\n")
+
+    return result
+end
+
+    -- Get the token
+   -- local token = get_token()
+    local token_json, err = get_token()
+    local data = json.decode(token_json)
+access_token = data["data"]["token"]
+session:setVariable("access_token",access_token)
+
+freeswitch.consoleLog("INFO", "Access Token: " .. access_token .. "\n")
+
+local payload = {
+--    attachmentID = attachmentID,
+--    recording_url=attachmentID,
+--    namespaceID = namespaceID,
+    call_uuid = call_uuid,
+--    created_by = created_by,
+   status = status,
+    start_at = start_at,
+    end_at = end_at,
+    participants = participants,
+    joined_users = joined_users,
+    initiator_id = caller,
+--    invited_users = invited_users
+}
+-- freeswitch.consoleLog("INFO", "namespaceID".. namespaceID)
+
+-- Convert to JSON
+local json_payload = encode_json(payload)
+
+freeswitch.consoleLog("INFO", "JSON Payload: " .. json_payload .. "\n")
+
+-- Make HTTP PUT request using FreeSWITCH curl
+-- local api_url = "https://epmstg.automaxsw.com/api/system/call-logs/" ..callog_id
+
+--local api_url = "https://ax3.automaxsw.com/api/v1/calls/"..call_uuid.."/end?token="
+local api_url = "https://epmstg.automaxsw.com/api/v1/calls/"..call_uuid.."/end?token="
+
+local token_json, err = get_token()
+local data = json.decode(token_json)
+local access_token = data["access_token"] or data["data"]["token"]
+-- Use FreeSWITCH API to make the call with Accept header
+--local api = freeswitch.API()
+--local access_token = session:getVariable("access_token")
+local curl_cmd = string.format(
+    "%s%s content-type application/json -H 'Authorization: Bearer %s' -H 'Accept: application/json' post '%s'",
+    api_url,
+    access_token,
+    access_token,
+    json_payload
+)
+
+freeswitch.consoleLog("INFO", "Final curl cmd: " .. curl_cmd .. "\n")
+
+local response = api:executeString("curl " .. curl_cmd)
+
+
+-- Check response
+if response and response ~= "" then
+    freeswitch.consoleLog("INFO", "Call log API request successful\n")
+    freeswitch.consoleLog("INFO", "Response body: " .. response .. "\n")
+local decoded = json.decode(response)
+-- if not decoded then this
+if not decoded then
+    freeswitch.consoleLog("ERR", "Failed to decode JSON response\n")
+    freeswitch.consoleLog("ERR", "Body was: " .. response .. "\n")
+    return
+end
+
+--local callLogID = decoded and decoded.response and decoded.response.id  and  decoded.response.data.id
+ 
+-- if not decoded then this
+
+    freeswitch.consoleLog("INFO", "call log id response :".. tostring(response))
+    freeswitch.consoleLog("INFO", "call log id response :".. tostring(curl_cmd))
+end
+if recfilename then 
+file_path = "/usr/local/freeswitch/recordings/" .. recfilename
+freeswitch.consoleLog("INFO", "recording deleted from server  :".. tostring(file_path))
+os.execute("rm -f " .. file_path)
+
+end
+
+-- Simple JSON builder (safe for this payload)
+function table_to_json(tbl)
+    local json = "{"
+    local first = true
+    for k, v in pairs(tbl) do
+        if not first then json = json .. "," end
+        json = json .. string.format('"%s":"%s"', k, v)
+        first = false
+    end
+    json = json .. "}"
+    return json
+end
+
+if callee_joined_at and callee_joined_at ~= "" then
+    --freeswitch.consoleLog("INFO", "Call answered → executing API twice\n")
+
+    local payload = '{"call_status":"available"}'
+    --local api_url = "https://epmstg.automaxsw.com/api/system/users/" .. caller .. "/status"
+
+    --local api_url = "https://ax3.automaxsw.com/api/v1/users/" .. caller .. "/status?token="
+    local api_url = "https://epmstg.automaxsw.com/api/v1/users/" .. caller .. "/status?token="
+
+    local curl_cmd = string.format(
+        "%s%s content-type application/json header 'Accept: application/json' put '%s'",
+	access_token,
+        api_url,
+        payload
+    )
+
+    -- First execution
+    local resp1 = api:executeString("curl " .. curl_cmd)
+    freeswitch.consoleLog("INFO", "API Response #1: " .. tostring(resp1) .. "\n")
+
+
+    local api_url2 = "https://epmstg.automaxsw.com/api/system/users/" .. callee .. "/status"
+
+    local curl_cmd2 = string.format(
+        "%s content-type application/json header 'Accept: application/json' put '%s'",
+        api_url2,
+        payload
+    )
+
+
+    -- Second execution
+--    local resp2 = api:executeString("curl " .. curl_cmd2)
+--    freeswitch.consoleLog("INFO", "API Response #2: " .. tostring(resp2) .. "\n")
+
+else
+    freeswitch.consoleLog("INFO", "Call not answered → skipping API\n")
+end
+

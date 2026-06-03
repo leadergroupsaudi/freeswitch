@@ -1,0 +1,77 @@
+api = freeswitch.API()
+freeswitch.consoleLog("INFO", "Agent UUID watcher started...\n")
+
+local ev = freeswitch.EventConsumer("CHANNEL_HANGUP_COMPLETE")
+
+while true do
+    local e = ev:pop(1000)
+    if e then
+        local uuid          = e:getHeader("Unique-ID")
+        local cause         = e:getHeader("Hangup-Cause")
+        local callee_number = e:getHeader("Caller-Destination-Number")
+        local cc_queue      = e:getHeader("variable_cc_queue")
+        local caller        = e:getHeader("Caller-Caller-ID-Number")
+        local agent         = e:getHeader("variable_cc_agent")
+        local a_leg_uuid    = e:getHeader("Other-Leg-Unique-ID")
+                           or e:getHeader("variable_cc_member_uuid")
+        local call_id       = e:getHeader("variable_callLogId") or e:getHeader("variable_sip_h_X-CallLogId")
+        local caller_joined_at = e:getHeader("variable_start_stamp")
+        local callee_left_at   = e:getHeader("variable_end_stamp")
+        local calltype      = e:getHeader("variable_calltype")
+                           or e:getHeader("variable_sip_h_X-calltype")
+                           or e:getHeader("variable_nolocal:sip_h_X-calltype")
+
+        freeswitch.consoleLog("INFO", "=== HANGUP EVENT ===\n")
+        freeswitch.consoleLog("INFO", "UUID        : " .. tostring(uuid) .. "\n")
+        freeswitch.consoleLog("INFO", "cause       : " .. tostring(cause) .. "\n")
+        freeswitch.consoleLog("INFO", "callee      : " .. tostring(callee_number) .. "\n")
+        freeswitch.consoleLog("INFO", "agent       : " .. tostring(agent) .. "\n")
+        freeswitch.consoleLog("INFO", "a_leg_uuid  : " .. tostring(a_leg_uuid) .. "\n")
+
+        if cause == "NORMAL_CLEARING" then
+
+            -- Only play if this was a callcenter agent leg
+            if agent and agent ~= "" and a_leg_uuid and a_leg_uuid ~= "" then
+                freeswitch.consoleLog("INFO", "Agent hung up - playing thank_you to caller: " .. a_leg_uuid .. "\n")
+
+                freeswitch.msleep(500)
+
+                local result = api:execute("uuid_broadcast",
+                    a_leg_uuid .. " /usr/local/freeswitch/sounds/at/thank_you.wav aleg")
+
+                freeswitch.consoleLog("INFO", "uuid_broadcast result: " .. tostring(result) .. "\n")
+            else
+                freeswitch.consoleLog("INFO", "NORMAL_CLEARING - no agent/a_leg, skipping\n")
+            end
+
+        elseif callee_number and #callee_number < 10 then
+            local status = nil
+            local callee_joined_at = 'null'
+            local caller_left_at   = 'in_call'
+
+            if cause == "USER_BUSY" then
+                status = "AGENT_REJECT"
+            elseif cause == "NO_ANSWER" then
+                status = "NO_ANSWER"
+            end
+
+            if status then
+                freeswitch.consoleLog("INFO", "--- PROCESSING ---\n")
+                freeswitch.consoleLog("INFO", "status        : " .. tostring(status) .. "\n")
+                freeswitch.consoleLog("INFO", "caller        : " .. tostring(caller) .. "\n")
+                freeswitch.consoleLog("INFO", "callee        : " .. tostring(callee_number) .. "\n")
+                freeswitch.consoleLog("INFO", "calltype      : " .. tostring(calltype) .. "\n")
+                freeswitch.consoleLog("INFO", "caller_joined : " .. tostring(caller_joined_at) .. "\n")
+                freeswitch.consoleLog("INFO", "callee_joined : " .. tostring(callee_joined_at) .. "\n")
+                freeswitch.consoleLog("INFO", "callee_left   : " .. tostring(callee_left_at) .. "\n")
+                freeswitch.consoleLog("INFO", "call_id       : " .. tostring(call_id) .. "\n")
+            else
+                freeswitch.consoleLog("INFO", "Unhandled cause: " .. tostring(cause) .. "\n")
+            end
+
+        else
+            freeswitch.consoleLog("INFO", "Skipping - callee: " .. tostring(callee_number) .. "\n")
+        end
+
+    end
+end

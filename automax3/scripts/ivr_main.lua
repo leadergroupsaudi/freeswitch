@@ -58,29 +58,34 @@ end
 local function upload_attachment(record_file, http_url, access_token)
     -- Check file size
     local file = io.open(record_file, "rb")
-    if not file then return nil, "FILE_ERROR" end
+    if not file then
+        return nil, "FILE_ERROR"
+    end
     file:seek("end")
     local size = file:seek()
     file:close()
-    
-    if size <= 1000 then return nil, "EMPTY_FILE" end
-    
+
+    if size <= 1000 then
+        return nil, "EMPTY_FILE"
+    end
+
     -- Remove quotes from token if present
     access_token = access_token:gsub('^"(.*)"$', '%1')
-    
+
     -- Upload - NO quotes around the token
-    local cmd = string.format("curl -s -w '%%{http_code}' -X POST '%s' -H 'Authorization: Bearer %s' -H 'Content-Type: multipart/form-data' -F 'fieldName=Attachments' -F 'upload=@%s' --compressed", 
+    local cmd = string.format(
+        "curl -s -w '%%{http_code}' -X POST '%s' -H 'Authorization: Bearer %s' -H 'Content-Type: multipart/form-data' -F 'fieldName=Attachments' -F 'upload=@%s' --compressed",
         http_url, access_token, record_file)
-    
+
     freeswitch.consoleLog("INFO", "Upload command: " .. cmd)
-    
+
     local handle = io.popen(cmd)
     local full_response = handle:read("*a")
     handle:close()
-    
+
     local http_code = string.sub(full_response, -3)
     local response_body = string.sub(full_response, 1, -4)
-    
+
     local code_num = tonumber(http_code)
     if code_num and code_num >= 200 and code_num < 300 then
         local success, decoded = pcall(json.decode, response_body)
@@ -97,17 +102,17 @@ local function check_audio_file(file_path)
         freeswitch.consoleLog("ERR", "Cannot open audio file: " .. file_path .. "\n")
         return false, 0
     end
-    
+
     -- Get file size
     file:seek("end")
     local size = file:seek()
     file:close()
-    
+
     freeswitch.consoleLog("INFO", "Audio file size: " .. size .. " bytes\n")
-    
+
     -- Check if file has meaningful content (more than just header)
     -- WAV header is typically 44 bytes, so we want more than that
-    if size > 1000 then  -- Adjust threshold as needed
+    if size > 1000 then -- Adjust threshold as needed
         return true, size
     else
         freeswitch.consoleLog("WARNING", "Audio file too small or empty: " .. size .. " bytes\n")
@@ -390,12 +395,12 @@ local function constructApi(methodType, contentType, serviceURL, apiInputdata)
                 if start and finish then
                     local expression = string.sub(inputValue, start + 1, finish - 1)
                     local updated_inputValue = session:getVariable(expression) or session:getVariable("Access_token")
-                    
+
                     freeswitch.consoleLog("INFO", "Testing Data \n")
                     freeswitch.consoleLog("INFO", "Modified string expre: " .. expression)
                     freeswitch.consoleLog("INFO", "Modified string updated value: " .. updated_inputValue)
-                    
-		    inputValue = string.gsub(inputValue, "{" .. expression .. "}", updated_inputValue)
+
+                    inputValue = string.gsub(inputValue, "{" .. expression .. "}", updated_inputValue)
                     headers = headers .. fieldName .. ": " .. inputValue
                 else
                     inputValue = session:getVariable(item.InputValue)
@@ -673,6 +678,8 @@ local function operation_code_30_exec(data)
     session:sleep(500)
     dtmf_digits = session:playAndGetDigits(min_digits, ivr_menu_digit_leg, attempts, timeLimit, '', sound,
         invalidaudiofile, (dtmfVerify_2))
+    freeswitch.consoleLog("notice", "play and get digit application: " .. dtmf_digits)
+
     -- session:playAndGetDigits ( min_digits, max_digits, max_attempts, timeout, terminators, prompt_audio_files, input_error_audio_files,digit_regex, variable_name, digit_timeout, transfer_on_failure)
     -- need pause before stream file
     session:setVariable("slept", "false");
@@ -903,8 +910,8 @@ local function operation_code_101_exec(data)
     end
     session:execute("sleep", "500")
     session:setAutoHangup(false)
-    session:setVariable("cc_last_nodeId", data.NodeId)  
-    session:execute("transfer", "OPCODE_101 XML public") -- change public to default 
+    session:setVariable("cc_last_nodeId", data.NodeId)
+    session:execute("transfer", "OPCODE_101 XML default") -- change public to default 
 end
 
 local function operation_code_105_exec(data)
@@ -1113,21 +1120,19 @@ local function getLocationID(getLocationResponse, location_index)
     local locations = response_table.result.locations
     if location_index == nil then
         return nil, "location index is nil"
-end
+    end
 
-if #locations == nil or #locations == '' or #locations == 0 then
+    if #locations == nil or #locations == '' or #locations == 0 then
 
-
-    freeswitch.consoleLog("INFO", "Testing Data of Location Index\n", location_index)
-    freeswitch.consoleLog("INFO", "Testing Data of Location data\n", locations)
-	return nil, "location not found"
-end
+        freeswitch.consoleLog("INFO", "Testing Data of Location Index\n", location_index)
+        freeswitch.consoleLog("INFO", "Testing Data of Location data\n", locations)
+        return nil, "location not found"
+    end
     -- Check if location_index is valid
     if location_index < 1 or location_index > #locations then
 
-
-    freeswitch.consoleLog("INFO", "Testing Data of Location Index\n", location_index)
-    freeswitch.consoleLog("INFO", "Testing Data of Location data-location index condition\n", locations)
+        freeswitch.consoleLog("INFO", "Testing Data of Location Index\n", location_index)
+        freeswitch.consoleLog("INFO", "Testing Data of Location data-location index condition\n", locations)
         return nil, "location_index out of range"
     end
 
@@ -1184,9 +1189,8 @@ local function update_incident_with_attachments(recordID, attachment_ids)
 
     -- API URL
     local url = string.format(
-      "https://automax.discretal.com/api/compose/namespace/425787942130548737/module/425787942127468545/record/%s",
-	recordID
-    )
+        "https://epmstg.automaxsw.com/api/compose/namespace/469403907223060481/module/469403907241148417/record/%s",
+        recordID)
 
     local access_token = session:getVariable("Access_token")
     freeswitch.consoleLog("INFO", "Access token from session: " .. tostring(access_token) .. "\n")
@@ -1208,26 +1212,54 @@ local function update_incident_with_attachments(recordID, attachment_ids)
     -- Build attachments as array of objects
     local attachments_array = {}
     for _, att_id in ipairs(attachment_ids) do
-        table.insert(attachments_array, { name = "Attachments", value = att_id })
+        table.insert(attachments_array, {
+            name = "Attachments",
+            value = att_id
+        })
     end
 
     -- Prepare the JSON payload
     local payload_table = {
-        values = {
-            { name = "Channel", value = "IVR" },
-            { name = "Criticality", value = "Low" },
-            { name = "Caller_name", value = CallerNameTextEn },
-            { name = "Last_call_date", value = "" },
-            { name = "National_ID", value = "IND" },
-            { name = "Mobile_number", value = "+91" .. mobilenumber },
-            { name = "Classification", value = ClassificationIdEn },
-            { name = "Incident_reason", value = IncidentDetailsTextEn },
-            { name = "Incident_Description", value = IncidentDetailsTextEn },
-            { name = "Map", value = map_value },
-            { name = "Location", value = LocationIdEn },
-            { name = "District", value = LocationIdEn },
-            { name = "Status", value = "Open" },
-        }
+        values = {{
+            name = "Channel",
+            value = "IVR"
+        }, {
+            name = "Criticality",
+            value = "Low"
+        }, {
+            name = "Caller_name",
+            value = CallerNameTextEn
+        }, {
+            name = "Last_call_date",
+            value = ""
+        }, {
+            name = "National_ID",
+            value = "IND"
+        }, {
+            name = "Mobile_number",
+            value = "+91" .. mobilenumber
+        }, {
+            name = "Classification",
+            value = ClassificationIdEn
+        }, {
+            name = "Incident_reason",
+            value = IncidentDetailsTextEn
+        }, {
+            name = "Incident_Description",
+            value = IncidentDetailsTextEn
+        }, {
+            name = "Map",
+            value = map_value
+        }, {
+            name = "Location",
+            value = LocationIdEn
+        }, {
+            name = "District",
+            value = LocationIdEn
+        }, {
+            name = "Status",
+            value = "Open"
+        }}
     }
 
     -- Add all attachments into values[]
@@ -1237,14 +1269,9 @@ local function update_incident_with_attachments(recordID, attachment_ids)
 
     local payload = json.encode(payload_table)
 
-    local curl_cmd = string.format(
-        "curl -s -X POST '%s' " ..
-        "-H 'Content-Type: application/json' " ..
-        "-H 'Accept: application/json' " ..
-        "-H 'Authorization: %s' " ..
-        "-d '%s'",
-        url, token, payload
-    )
+    local curl_cmd = string.format("curl -s -X POST '%s' " .. "-H 'Content-Type: application/json' " ..
+                                       "-H 'Accept: application/json' " .. "-H 'Authorization: %s' " .. "-d '%s'", url,
+        token, payload)
 
     freeswitch.consoleLog("INFO", "CURL CMD: " .. curl_cmd .. "\n")
 
@@ -1256,10 +1283,9 @@ local function update_incident_with_attachments(recordID, attachment_ids)
     freeswitch.consoleLog("INFO", "Update Incident API Response: " .. result .. "\n")
 end
 
-
 local function update_incident_with_attachment(recordID, attachment_id)
     freeswitch.consoleLog("INFO", "Entering update_incident")
-    
+
     -- Check input
     if not recordID or not attachment_id then
         freeswitch.consoleLog("ERROR", "recordID or attachmentID missing\n")
@@ -1268,9 +1294,9 @@ local function update_incident_with_attachment(recordID, attachment_id)
 
     -- API URL (replace :recordID in URL with actual recordID)
     local url = string.format(
-      "https://automax.discretal.com/api/compose/namespace/425787942130548737/module/425787942127468545/record/%s",
+        "https://epmstg.automaxsw.com/api/compose/namespace/469403907223060481/module/469403907241148417/record/%s",
 
---        "https://automax.discretal.com/api/compose/namespace/432712349708976129/module/432712349708910593/record/%s",
+        --        "https://automax.discretal.com/api/compose/namespace/432712349708976129/module/432712349708910593/record/%s",
         recordID)
     local access_token = session:getVariable("Access_token")
     freeswitch.consoleLog("INFO", "Access token from session: " .. tostring(access_token) .. "\n")
@@ -1338,19 +1364,14 @@ local function update_incident_with_attachment(recordID, attachment_id)
         }}
     }
     local payload = json.encode(payload_table)
---[[    local curl_cmd = string.format("curl -s -X POST '%s' " .. "-H 'Content-Type: application/json' " ..
+    --[[    local curl_cmd = string.format("curl -s -X POST '%s' " .. "-H 'Content-Type: application/json' " ..
                                        "-H 'Accept: application/json' " .. "-H 'Authorization: %s' " .. -- %s will insert Bearer <token> without quotes
     "-d '%s'", url, token, payload)
     ]]
     -- build curl command properly
-local curl_cmd = string.format(
-    "curl -s -X POST '%s' " ..
-    "-H 'Content-Type: application/json' " ..
-    "-H 'Accept: application/json' " ..
-    "-H 'Authorization: %s' " ..
-    "-d '%s'",
-    url, token, payload
-)
+    local curl_cmd = string.format("curl -s -X POST '%s' " .. "-H 'Content-Type: application/json' " ..
+                                       "-H 'Accept: application/json' " .. "-H 'Authorization: %s' " .. "-d '%s'", url,
+        token, payload)
     freeswitch.consoleLog("info", "CURL CMD: " .. curl_cmd .. "\n")
     -- Execute curl command
     local handle = io.popen(curl_cmd)
@@ -1368,6 +1389,7 @@ local function operation_code_111_exec(data)
             methodType = api.methodType
             contentType = api.inputMediaType
             serviceURL = api.serviceURL
+
             if type(api.apiInput) == "string" then
                 apiInputdata = json.decode(api.apiInput)
             else
@@ -1379,22 +1401,14 @@ local function operation_code_111_exec(data)
         end
     end
     freeswitch.consoleLog("INFO",
-        "Method:: " .. methodType .. " :: contentType :: " .. contentType .. " :: serviceURL ::" .. serviceURL ..
+        "Method_manjunath:: " .. methodType .. " :: contentType :: " .. contentType .. " :: serviceURL ::" .. serviceURL ..
             " :: apiInput ::" .. json.encode(apiInputdata))
     local finalApi = constructApi(methodType, contentType, serviceURL, apiInputdata)
     freeswitch.consoleLog("NOTICE", "Final modified API: " .. finalApi)
-    --[[			local access_token = session:getVariable("Access_token")
-			local authToken = "Bearer " .. access_token
-			local getUrl = "curl -s -X GET 'https://automax.discretal.com/api/classifications/hierarchy?client=mobile' -H 'Authorization: " .. authToken .. "'"
-			local handle = io.popen(getUrl)
-			local getResponse = handle:read("*a")
-			handle:close()
-			freeswitch.consoleLog("INFO", "Classification Hierarchy Response: " .. getResponse .. "\n")]]
-    --		freeswitch.consoleLog("INFO", "Method:: "..methodType.." :: contentType :: "..contentType.." :: serviceURL ::"..serviceURL.." :: apiInput ::".. json.encode(apiInputdata))
+    
     if contentType == "application/json" then
         freeswitch.consoleLog("NOTICE", "Final modified API in application/json: " .. finalApi)
         local curlCmd = "curl " .. finalApi
-        --		   local apiResponse = execute_command(finalApi)
         local handle = io.popen(curlCmd)
         local apiResponse = handle:read("*a")
         handle:close()
@@ -1409,92 +1423,97 @@ local function operation_code_111_exec(data)
         freeswitch.consoleLog("INFO", "Response body: " .. curl_response .. "\n")
         freeswitch.consoleLog("INFO", "HTTP code: " .. tostring(curl_response_code) .. "\n")
 
--- Main flow with attachment upload integrated
-if curl_response_code >= 200 and curl_response_code < 300 then
-    freeswitch.consoleLog("INFO", "Main request successful - HTTP " .. curl_response_code .. "\n")
-    freeswitch.consoleLog("INFO", "Main response: " .. curl_response .. "\n")
-    
-    local success, decoded_response = pcall(json.decode, curl_response)
-    if success and decoded_response and decoded_response.response and decoded_response.response.recordID then
-        local recordID = decoded_response.response.recordID
-        session:setVariable("incident_no_reponse", recordID)
-        
-        freeswitch.consoleLog("INFO", "Record created successfully - ID: " .. recordID .. "\n")
-        
-        -- Now upload attachment if audio file exists and has data
-        local record_file = recording_filename
-        local attachment_id = nil
-        local upload_status = "NOT_ATTEMPTED"
-        
-        if record_file and record_file ~= "" then
-        local access_token = session:getVariable("Access_token")
-    if access_token then    
-	freeswitch.consoleLog("INFO", "Attempting to upload attachment: " .. recording_filename)
-        local http_url = "https://automax.discretal.com/api/compose/namespace/425787942130548737/module/425787942127468545/record/attachment"     
-	attachment_id, upload_status = upload_attachment(record_file, http_url, access_token)
-            local cl_msg_filename = string.format("%sCL_MSG_CMP_%s.wav", recording_dir, call_uuid)
-local cl_nm_filename  = string.format("%sCL_NM_CMP_%s.wav", recording_dir, call_uuid)
+        -- Main flow with attachment upload integrated
+        if curl_response_code >= 200 and curl_response_code < 300 then
+            freeswitch.consoleLog("INFO", "Main request successful - HTTP " .. curl_response_code .. "\n")
+            freeswitch.consoleLog("INFO", "Main response: " .. curl_response .. "\n")
 
--- Upload both (they may succeed or fail independently)
-local attachment_id1, upload_status1 = upload_attachment(cl_msg_filename, http_url, access_token)
-local attachment_id2, upload_status2 = upload_attachment(cl_nm_filename, http_url, access_token)
+            local success, decoded_response = pcall(json.decode, curl_response)
+            if success and decoded_response and decoded_response.response and decoded_response.response.recordID then
+                local recordID = decoded_response.response.recordID
+                session:setVariable("incident_no_reponse", recordID)
 
--- Collect attachment IDs in a table
-local attachments = {}
-if attachment_id1 then
-	                session:setVariable("attachment_id", attachment_id1)
+                freeswitch.consoleLog("INFO", "Record created successfully - ID: " .. recordID .. "\n")
 
-    table.insert(attachments, attachment_id1)
-    freeswitch.consoleLog("INFO", "Attachment ID stored: " .. attachment_id1 .. "\n")
-else
-    freeswitch.consoleLog("WARNING", "Attachment upload failed for CL_MSG - Status: " .. tostring(upload_status1) .. "\n")
-end
+                -- Now upload attachment if audio file exists and has data
+                local record_file = recording_filename
+                local attachment_id = nil
+                local upload_status = "NOT_ATTEMPTED"
 
-if attachment_id2 then
-                    session:setVariable("attachment_id", attachment_id2)
+                if record_file and record_file ~= "" then
+                    local access_token = session:getVariable("Access_token")
+                    if access_token then
+                        freeswitch.consoleLog("INFO", "Attempting to upload attachment: " .. recording_filename)
+                        --    local http_url = "https://automax.discretal.com/api/compose/namespace/425787942130548737/module/425787942127468545/record/attachment"     
+                        local http_url =
+                            "https://epmstg.automaxsw.com/api/compose/namespace/469403907223060481/module/469403907241148417/record/attachment"
+                        attachment_id, upload_status = upload_attachment(record_file, http_url, access_token)
+                        local cl_msg_filename = string.format("%sCL_MSG_CMP_%s.wav", recording_dir, call_uuid)
+                        local cl_nm_filename = string.format("%sCL_NM_CMP_%s.wav", recording_dir, call_uuid)
 
-	table.insert(attachments, attachment_id2)
-    freeswitch.consoleLog("INFO", "Attachment ID stored: " .. attachment_id2 .. "\n")
-else
-    freeswitch.consoleLog("WARNING", "Attachment upload failed for CL_NM - Status: " .. tostring(upload_status2) .. "\n")
-end
+                        -- Upload both (they may succeed or fail independently)
+                        local attachment_id1, upload_status1 =
+                            upload_attachment(cl_msg_filename, http_url, access_token)
+                        local attachment_id2, upload_status2 = upload_attachment(cl_nm_filename, http_url, access_token)
 
--- Save attachments as a session variable (if needed later)
-if #attachments > 0 then
-                update_incident_with_attachments(recordID, attachments)
-local files_to_delete = {cl_msg_filename, cl_nm_filename}
-for _, file in ipairs(files_to_delete) do
-    local ok, err = os.remove(file)
-    if ok then
-        freeswitch.consoleLog("INFO", "Deleted file: " .. file .. "\n")
-    else
-        freeswitch.consoleLog("WARNING", "Failed to delete file: " .. file .. " Error: " .. tostring(err) .. "\n")
-    end
-end
-    session:setVariable("attachment_ids", table.concat(attachments, ","))
-end
-    else
-	    freeswitch.consoleLog("WARNING", "Error msg")
-    end
+                        -- Collect attachment IDs in a table
+                        local attachments = {}
+                        if attachment_id1 then
+                            session:setVariable("attachment_id", attachment_id1)
+
+                            table.insert(attachments, attachment_id1)
+                            freeswitch.consoleLog("INFO", "Attachment ID stored: " .. attachment_id1 .. "\n")
+                        else
+                            freeswitch.consoleLog("WARNING", "Attachment upload failed for CL_MSG - Status: " ..
+                                tostring(upload_status1) .. "\n")
+                        end
+
+                        if attachment_id2 then
+                            session:setVariable("attachment_id", attachment_id2)
+
+                            table.insert(attachments, attachment_id2)
+                            freeswitch.consoleLog("INFO", "Attachment ID stored: " .. attachment_id2 .. "\n")
+                        else
+                            freeswitch.consoleLog("WARNING", "Attachment upload failed for CL_NM - Status: " ..
+                                tostring(upload_status2) .. "\n")
+                        end
+
+                        -- Save attachments as a session variable (if needed later)
+                        if #attachments > 0 then
+                            update_incident_with_attachments(recordID, attachments)
+                            local files_to_delete = {cl_msg_filename, cl_nm_filename}
+                            for _, file in ipairs(files_to_delete) do
+                                local ok, err = os.remove(file)
+                                if ok then
+                                    freeswitch.consoleLog("INFO", "Deleted file: " .. file .. "\n")
+                                else
+                                    freeswitch.consoleLog("WARNING", "Failed to delete file: " .. file .. " Error: " ..
+                                        tostring(err) .. "\n")
+                                end
+                            end
+                            session:setVariable("attachment_ids", table.concat(attachments, ","))
+                        end
+                    else
+                        freeswitch.consoleLog("WARNING", "Error msg")
+                    end
+                else
+                    freeswitch.consoleLog("INFO", "No audio file to upload\n")
+                end
+                inputKeys = "S"
+
+            else
+                freeswitch.consoleLog("ERR", "Main request JSON decode failed or recordID missing\n")
+                freeswitch.consoleLog("ERR", "Raw response: " .. tostring(curl_response) .. "\n")
+                inputKeys = "F"
+            end
         else
-            freeswitch.consoleLog("INFO", "No audio file to upload\n")
+            freeswitch.consoleLog("ERR", "Main request failed - HTTP " .. curl_response_code .. "\n")
+            freeswitch.consoleLog("ERR", "Response: " .. curl_response .. "\n")
+            inputKeys = "F"
         end
-        inputKeys = "S"
-        
-    else
-        freeswitch.consoleLog("ERR", "Main request JSON decode failed or recordID missing\n")
-        freeswitch.consoleLog("ERR", "Raw response: " .. tostring(curl_response) .. "\n")
-        inputKeys = "F"
-    end
-else
-    freeswitch.consoleLog("ERR", "Main request failed - HTTP " .. curl_response_code .. "\n")
-    freeswitch.consoleLog("ERR", "Response: " .. curl_response .. "\n")
-    inputKeys = "F"
-end
     else
         freeswitch.consoleLog("INFO", "Executing")
-        --	local finalApi = [[https://automax.discretal.com/auth/oauth2/token -s -w '+%{http_code}' -H "Content-Type: application/x-www-form-urlencoded" -X POST -d "scope=profile+api&grant_type=client_credentials" -H "Authorization: Basic NDQxMTE5NzQ5MTM4NDE1NjE3OmxKVER1dENxUHljSUVJVUxYZ29JamF2S3NvZ1dtNEZDSmNXeHhiNExFbXJxcWtrblN1eVM5MDU4UGtTREpyWjc="]]
-
+        
         -- Extract base URL
         local url = finalApi:match("^(https://%S+)")
         -- Extract all headers
@@ -1503,7 +1522,7 @@ end
             table.insert(headers, h)
         end
 
-	freeswitch.consoleLog("INFO", "RAW API: " .. finalApi)
+        freeswitch.consoleLog("INFO", "RAW API: " .. finalApi)
 
         -- Extract -d data
         -- local data = finalApi:match('%-d%s+"([^"]+)"')
@@ -1596,7 +1615,7 @@ end
                                 access_token = access_token:gsub('^"(.*)"$', '%1')
                                 local authToken = "Bearer " .. access_token
                                 local getclassificationurl =
-                                    "curl -s -X GET 'https://automax.discretal.com/api/classifications/hierarchy?client=mobile' -H 'Authorization: " ..
+                                    "curl -s -X GET 'https://epmstg.automaxsw.com/api/classifications/hierarchy?client=mobile' -H 'Authorization: " ..
                                         authToken .. "'"
                                 local handle = io.popen(getclassificationurl)
                                 local getClassificationResponse = handle:read("*a")
@@ -1605,7 +1624,306 @@ end
                                     getClassificationResponse .. "\n")
                                 --	local getlocationurl ="curl -s -X GET 'https://automax.discretal.com/api/locations'  -H 'Authorization: " .. authToken .. "'"
                                 local getlocationurl =
-                                    "curl -s -X GET \"https://automax.discretal.com/api/locations\" -H \"Authorization: Bearer " ..
+                                    "curl -s -X GET \"https://epmstg.automaxsw.com/api/locations\" -H \"Authorization: Bearer " ..
+                                        access_token .. "\""
+                                freeswitch.consoleLog("INFO", "Executing curl command: " .. getlocationurl .. "\n")
+                                local handle = io.popen(getlocationurl)
+                                local getLocationResponse = handle:read("*a")
+                                handle:close()
+                                freeswitch.consoleLog("INFO", "Raw Location Response: " .. tostring(getLocationResponse))
+                                -- Get classification indexes from session variables
+                                -- local classification_index = tonumber(session:getVariable("ClassificationIdEn"))
+                                -- local subclassification_index = tonumber(session:getVariable("SubClassificationIdEn"))
+                                -- local location_index = tonumber(session:getVariable("LocationIdEn"))
+                                local classification_index = tonumber(
+                                    session:getVariable("ClassificationIdEn") or
+                                        session:getVariable("ClassificationIdAr"))
+                                local subclassification_index = tonumber(
+                                    session:getVariable("SubClassificationIdEn") or
+                                        session:getVariable("SubClassificationIdAr"))
+                                local location_index = tonumber(
+                                    session:getVariable("LocationIdEn") or session:getVariable("LocationIdAr"))
+                                freeswitch.consoleLog("INFO", "[DEBUG] classification_index: " ..
+                                    tostring(classification_index) .. "\n")
+                                freeswitch.consoleLog("INFO", "[DEBUG] subclassification_index: " ..
+                                    tostring(subclassification_index) .. "\n")
+                                freeswitch.consoleLog("INFO",
+                                    "[DEBUG] location_index: " .. tostring(location_index) .. "\n")
+                                freeswitch.consoleLog("INFO", "[DEBUG] getClassificationResponse: " ..
+                                    tostring(getClassificationResponse:sub(1, 500)) .. "\n")
+                                --  Call your function to get the classification ID
+                                local final_classification_id, err =
+                                    getClassificationID(getClassificationResponse, classification_index,
+                                        subclassification_index)
+                                local final_location_id, err = getLocationID(getLocationResponse, location_index)
+                                --  Set session variable or log error
+                                if final_classification_id then
+                                    session:setVariable("ClassificationIdEn", final_classification_id)
+                                    freeswitch.consoleLog("INFO", "Mapped ClassificationEn to ID: " ..
+                                        final_classification_id .. "\n")
+                                else
+                                    freeswitch.consoleLog("ERR", "Error getting classification ID: " ..
+                                        (err or "unknown error") .. "\n")
+                                end
+                                freeswitch.consoleLog("INFO", "Set Variable: " .. key.ResultFieldTag .. " = " ..
+                                    json.encode(value))
+                                if final_location_id then
+                                    session:setVariable("LocationIdEn", final_location_id)
+                                    freeswitch.consoleLog("INFO",
+                                        "Mapped LocationIdEn to ID: " .. final_location_id .. "\n")
+                                else
+                                    freeswitch.consoleLog("ERR", "Error getting location ID: " ..
+                                        (err or "unknown error") .. "\n")
+                                end
+                            else
+                                freeswitch.consoleLog("ERROR", "Value not found for " .. key.ResultFieldName)
+                            end
+                            -- session:setVariable(key.ResultFieldTag,json.encode(curl_response[key.ResultFieldName]))
+                        end
+                    end
+                    for _, key in ipairs(apiOutput) do
+                        if key.ParentResultId ~= nil then
+                            freeswitch.consoleLog("INFO", "Found ParentID for ResultFieldTag" .. key.ResultFieldTag)
+                            local parentResult = json.decode(session:getVariable(key.ParentResultId))
+                            session:setVariable(key.ResultFieldTag, parentResult[key.ResultFieldName])
+                        end
+                    end
+                end
+                inputKeys = "S"
+            else
+                freeswitch.consoleLog("INFO", "Null apiOutput")
+                inputKeys = "S"
+            end
+        else
+            inputKeys = "F"
+        end
+    end
+    find_childNode_with_dtmfinput(inputKeys, data)
+end
+
+local function operation_code_113_exec(data)
+send_whatsapp_message("737665898", "text_hello_message")
+end
+
+	-- Function to send WhatsApp message via Graph API
+function send_whatsapp_message(to_number, message_body)
+  local url = "https://graph.facebook.com/v24.0/779437325263607/messages"
+
+  -- JSON payload (SINGLE LINE, no newlines)
+  local payload = string.format(
+    '{"messaging_product":"whatsapp","recipient_type":"individual","to":"%s","type":"text","text":{"preview_url":false,"body":"%s"}}',
+    to_number,
+    message_body
+  )
+
+  -- Escape single quotes just in case
+  payload = payload:gsub("'", "\\'")
+
+  -- Headers (newline separated)
+  local headers =
+    "Authorization: Bearer EAAhtSJ1sZCfgBQKDZAOt7ZAzdPxQEg8hPGvoExs9J7ZAPcFccxBdARqdIqVLkP2ddh0X5qFlfcsFulOsDWLMquE98A1FZB2OinI7d1Gm87ksVzJ7aJZBaumNqNtHuoP2NQ77Y5elcFaHkhLH1v0ZBEcOV5EXrrO1RGDvJ5qyKqDCQ0mzfYB5DANEzeMFh2m"
+
+  -- Build mod_curl command
+  local curl_cmd = string.format(
+    '"%s" post \'%s\' application/json 10 "%s"',
+    url,
+    payload,
+    headers
+  )
+
+  freeswitch.consoleLog("INFO", "WhatsApp curl cmd: " .. curl_cmd .. "\n")
+
+  -- Execute
+  local response = api:execute("curl", curl_cmd)
+
+  freeswitch.consoleLog("INFO", "WhatsApp API Response: " .. tostring(response) .. "\n")
+
+  return response
+end
+
+
+
+
+local function operation_code_222_exec(data)
+    local api_id = data.APIId
+    freeswitch.consoleLog("NOTICE", "API ID: " .. api_id)
+    local methodType, contentType, serviceURL, apiInputdata, inputKeys
+    for _, api in pairs(webApiData) do
+        if api.apiId == api_id then
+            methodType = api.methodType
+            contentType = api.inputMediaType
+            serviceURL = api.serviceURL
+            if type(api.apiInput) == "string" then
+                apiInputdata = json.decode(api.apiInput)
+            else
+                apiInputdata = api.apiInput -- already a table
+            end
+            -- apiInputdata = json.decode(api.apiInput)
+            apiOutput = api.apiOutput
+            break
+        end
+    end
+    freeswitch.consoleLog("INFO",
+        "Method:: " .. methodType .. " :: contentType :: " .. contentType .. " :: serviceURL ::" .. serviceURL ..
+            " :: apiInput ::" .. json.encode(apiInputdata))
+    local finalApi = constructApi(methodType, contentType, serviceURL, apiInputdata)
+    freeswitch.consoleLog("NOTICE", "Final modified API: " .. finalApi)
+    
+    if contentType == "application/json" then
+        freeswitch.consoleLog("NOTICE", "Final modified API in application/json: " .. finalApi)
+        local curlCmd = "curl " .. finalApi
+        local handle = io.popen(curlCmd)
+        local apiResponse = handle:read("*a")
+        handle:close()
+
+        freeswitch.consoleLog("INFO", "HTTP response: " .. tostring(apiResponse) .. "\n")
+        -- Match + followed by digits at the end
+        local curl_response_code = tonumber(apiResponse:match("%+(%d+)$"))
+
+        -- Remove the +HTTP_CODE from the response to get only JSON
+        local curl_response = apiResponse:gsub("%+%d+$", "")
+
+        freeswitch.consoleLog("INFO", "Response body: " .. curl_response .. "\n")
+        freeswitch.consoleLog("INFO", "HTTP code: " .. tostring(curl_response_code) .. "\n")
+
+        -- Main flow with attachment upload integrated
+        if curl_response_code >= 200 and curl_response_code < 300 then
+            freeswitch.consoleLog("INFO", "Main request successful - HTTP " .. curl_response_code .. "\n")
+            freeswitch.consoleLog("INFO", "Main response: " .. curl_response .. "\n")
+
+            local success, decoded_response = pcall(json.decode, curl_response)
+            if success and decoded_response and decoded_response.response and decoded_response.response.recordID then
+                local recordID = decoded_response.response.recordID
+                session:setVariable("incident_no_reponse", recordID)
+
+                freeswitch.consoleLog("INFO", "Record created successfully - ID: " .. recordID .. "\n")
+
+                local upload_status = "NOT_ATTEMPTED"
+                inputKeys = "S"
+            else
+                freeswitch.consoleLog("ERR", "Main request JSON decode failed or recordID missing\n")
+                freeswitch.consoleLog("ERR", "Raw response: " .. tostring(curl_response) .. "\n")
+                inputKeys = "F"
+            end
+        else
+            freeswitch.consoleLog("ERR", "Main request failed - HTTP " .. curl_response_code .. "\n")
+            freeswitch.consoleLog("ERR", "Response: " .. curl_response .. "\n")
+            inputKeys = "F"
+        end
+    else
+        freeswitch.consoleLog("INFO", "Executing")
+        
+        -- Extract base URL
+        local url = finalApi:match("^(https://%S+)")
+        -- Extract all headers
+        local headers = {}
+        for h in finalApi:gmatch('%-H%s+"[^"]+"') do
+            table.insert(headers, h)
+        end
+
+        freeswitch.consoleLog("INFO", "RAW API: " .. finalApi)
+
+        -- Extract -d data
+        -- local data = finalApi:match('%-d%s+"([^"]+)"')
+        --	local data = finalApi:match('%-d%s*"([^"]+)"')
+        local data = finalApi:match('%-d%s*[\'"]([^\'"]+)[\'"]')
+        freeswitch.consoleLog("INFO", "DATA OF  API: " .. data)
+
+        -- Reconstruct
+        local curlCmd = 'curl -s -k -X POST \\\n'
+        curlCmd = curlCmd .. '  -d "' .. data .. '" \\\n'
+        for _, h in ipairs(headers) do
+            curlCmd = curlCmd .. '  ' .. h .. ' \\\n'
+        end
+        curlCmd = curlCmd .. '  ' .. url
+
+        -- Print the result
+        freeswitch.consoleLog("NOTICE", "Formatted CURL Command:\n" .. curlCmd .. "\n")
+
+        -- Run the command and capture output
+        local handle = io.popen(curlCmd)
+        local response = handle:read("*a")
+        handle:close()
+
+        -- Print full response for debugging
+        freeswitch.consoleLog("NOTICE", "Token Response: " .. response .. "\n")
+
+        -- Try to extract the body and status code (check if there's a valid response)
+        local body, status_code = response:match("^(.*)\n(%d%d%d)$")
+
+        if not body or not status_code then
+            body = response
+            status_code = 200 -- Assuming success if no error in response
+        end
+
+        -- Clean up body (remove extra spaces)
+        body = body and body:gsub("^%s+", ""):gsub("%s+$", "")
+        status_code = tonumber(status_code)
+        -- Log full details
+        freeswitch.consoleLog("NOTICE", "HTTP Status Code: " .. tostring(status_code))
+        freeswitch.consoleLog("NOTICE", "Curl Response Body: " .. tostring(body))
+
+        local curl_response_code = status_code
+        local curl_response = body
+
+        -- freeswitch.consoleLog("INFO", tostring(api_response))
+        --	curl_response_code = tonumber(session:getVariable("curl_response_code"))
+        --	curl_response      = session:getVariable("curl_response_data")
+        --	freeswitch.consoleLog("NOTICE","Curl Response Code: "..curl_response_code)
+        if curl_response then
+            freeswitch.consoleLog("NOTICE", "Curl Response Data: " .. curl_response)
+        end
+        if curl_response_code >= 200 and curl_response_code < 300 then
+            if #apiOutput > 2 then
+                freeswitch.consoleLog("INFO", "API Output: " .. apiOutput)
+                apiOutput = json.decode(apiOutput)
+                freeswitch.consoleLog("INFO", "Curl Response: " .. curl_response)
+                local curl_response_decoded = json.decode(curl_response)
+                if curl_response_decoded then
+                    freeswitch.consoleLog("INFO", "Decoded curl_response: " .. json.encode(curl_response_decoded))
+                else
+                    freeswitch.consoleLog("ERROR", "Failed to decode curl_response")
+                    return
+                end
+                -- curl_response = json.decode(curl_response)
+                if curl_response_decoded then
+                    for _, key in ipairs(apiOutput) do
+                        if key.ParentResultId == nil then
+                            freeswitch.consoleLog("INFO", "Found NULL ParentID")
+                            --	local value = curl_response_decoded[key.ResultFieldName]
+                            -- Check if the field name matches "access_token"
+                            local fieldName = key.ResultFieldName
+                            if fieldName == "token" then
+                                fieldName = "access_token" -- Adjust to actual field in curl_response_decoded
+                                --[[	local access_token = session:getVariable("Access_token")
+					local authToken = "Bearer " .. access_token
+					local getUrl = "curl -s -X GET 'https://automax.discretal.com/api/classifications/hierarchy?client=mobile' -H 'Authorization: " .. authToken .. "'"
+	
+					local handle = io.popen(getUrl)
+					local getResponse = handle:read("*a")
+					handle:close()
+					freeswitch.consoleLog("INFO", "Classification Hierarchy Response: " .. getResponse .. "\n")]]
+                            end
+
+                            -- Try to access the value
+                            local value = curl_response_decoded[fieldName]
+                            if value then
+                                -- session:setVariable(key.ResultFieldTag, json.encode(value))
+                                session:setVariable(key.ResultFieldTag, json.encode(value))
+                                local access_token = session:getVariable("Access_token")
+                                access_token = access_token:gsub('^"(.*)"$', '%1')
+                                local authToken = "Bearer " .. access_token
+                                local getclassificationurl =
+                                    "curl -s -X GET 'https://epmstg.automaxsw.com/api/classifications/hierarchy?client=mobile' -H 'Authorization: " ..
+                                        authToken .. "'"
+                                local handle = io.popen(getclassificationurl)
+                                local getClassificationResponse = handle:read("*a")
+                                handle:close()
+                                freeswitch.consoleLog("INFO", "Classification Hierarchy Response: " ..
+                                    getClassificationResponse .. "\n")
+                                --	local getlocationurl ="curl -s -X GET 'https://automax.discretal.com/api/locations'  -H 'Authorization: " .. authToken .. "'"
+                                local getlocationurl =
+                                    "curl -s -X GET \"https://epmstg.automaxsw.com/api/locations\" -H \"Authorization: Bearer " ..
                                         access_token .. "\""
                                 freeswitch.consoleLog("INFO", "Executing curl command: " .. getlocationurl .. "\n")
                                 local handle = io.popen(getlocationurl)
@@ -1770,7 +2088,7 @@ local function operation_code_120_exec(data)
 end
 
 local function operation_code_341_exec(data) -- Speech to Text
-    local audioFile = session:getVariable(data.DeafultInput);
+  local audioFile = session:getVariable(data.DeafultInput);
     if data.InputType == 40 then
         session:setVariable("DefultInput", audioFile)
     end
@@ -1788,9 +2106,9 @@ local function operation_code_341_exec(data) -- Speech to Text
         if api.apiId == api_id then
             freeswitch.consoleLog("INFO", "Found API ID")
             methodType = api.methodType
-            contentType = api.inputMediaType
+           contentType = api.inputMediaType
             serviceURL = api.serviceURL
-            apiInputdata = json.decode(api.apiInput)
+           apiInputdata = json.decode(api.apiInput)
             apiOutput = api.apiOutput
             break
         end
@@ -1823,7 +2141,7 @@ local function operation_code_341_exec(data) -- Speech to Text
                     if key.ParentResultId == nil then
                         local value = decoded_response[key.ResultFieldName]
                         if value then
-                            session:setVariable(key.ResultFieldTag, json.encode(value))
+                           session:setVariable(key.ResultFieldTag, json.encode(value))
                         end
                     end
                 end
@@ -1845,6 +2163,7 @@ local function operation_code_341_exec(data) -- Speech to Text
 
     find_childNode_with_dtmfinput(apicallResult, data)
 end
+
 
 local function operation_code_330_exec(data) -- Text to Speech BuiltIn
     local tts_text = session:getVariable(data.DeafultInput);
@@ -1905,14 +2224,14 @@ local function operation_code_50_exec(data) -----Instead of TTS 330
         end
         -- Play each audio file based on the specified language
         for _, wav_file in ipairs(split_numbers) do
-            local file_path = string.format("/usr/local/freeswitch-automax-instance/share/freeswitch/sounds/%s/%s",
+           local file_path = string.format("/usr/local/freeswitch/sounds/%s/%s",
                 tag_name, wav_file)
             freeswitch.consoleLog("info", "Playing: " .. file_path)
             session:execute("playback", file_path) -- Play the audio file
-            session:execute("sleep", "500") -- Optional pause between plays
+            session:execute("sleep", "50") -- Optional pause between plays
         end
-        find_childNode(data)
-    end
+       find_childNode(data)
+   end
 end
 
 local function execute_operation(nodedata)
@@ -1963,6 +2282,13 @@ local function execute_operation(nodedata)
     elseif (nodedata.OperationCode == 111) then
         freeswitch.consoleLog("notice", "Executing Opeartion Code 111")
         operation_code_111_exec(nodedata)
+   elseif (nodedata.OperationCode == 113) then
+        freeswitch.consoleLog("notice", "Executing Opeartion Code 113")
+        operation_code_113_exec(nodedata)
+
+    elseif (nodedata.OperationCode == 222) then
+        freeswitch.consoleLog("notice", "Executing Opeartion Code 222")
+        operation_code_222_exec(nodedata)
     elseif (nodedata.OperationCode == 112) then
         freeswitch.consoleLog("notice", "Executing Opeartion Code 112")
         operation_code_112_exec(nodedata)
@@ -1984,7 +2310,11 @@ local function execute_operation(nodedata)
     elseif (nodedata.OperationCode == 341) then
         freeswitch.consoleLog("notice", "Executing Opeartion Code 341")
         operation_code_341_exec(nodedata)
-    else
+ elseif (nodedata.OperationCode == 342) then
+        freeswitch.consoleLog("notice", "Executing Opeartion Code 342")
+        operation_code_342_exec(nodedata)
+    
+else
         freeswitch.consoleLog("err", "========== Operation Code " .. nodedata.OperationCode ..
             " is not Configured in service =================")
         session:hangup();
@@ -1994,7 +2324,7 @@ end
 function Sub_menu(nodeid)
     -- local iVRNodeId,iVRNodeName,operationCode,audioFile,validKeys,invalidInputAudioFile = 1;
     freeswitch.consoleLog("notice", "Sub Menu IVR Child Node ID: " .. nodeid)
-   for key, value in pairs(ivrdata) do
+    for key, value in pairs(ivrdata) do
         if value.NodeId == nodeid then
             execute_operation(value)
             break
@@ -2053,11 +2383,11 @@ if session:ready() then
     -- local callLogId = callLog.create()
     -- session:setVariable("sip_h_X-CallLogId","1133")
     session:answer()
-    session:execute("sleep", "500")
+    --    session:execute("sleep", "500")
     freeswitch.consoleLog("notice", call_uuid .. ": Session Answered\n")
     freeswitch.consoleLog("notice", call_uuid .. ": Entered menu function\n")
     -- local iVRNodeId,iVRNodeName,operationCode,audioFile,isStartNode,validKeys,invalidInputAudioFile,repeatLimit;
-    session:execute("wait_for_silence", "500 1 5 5000") -- Wait for brief silence indicating media is ready
+    session:execute("wait_for_silence", "500 1 5 100") -- Wait for brief silence indicating media is ready
     -- Check if call is still active
 
     for _, node in pairs(ivrdata) do
